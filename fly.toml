@@ -1,0 +1,14 @@
+# fly.toml app configuration file generated for telegram-bot-encar-quiet-water-6573 on 2026-04-16T15:02:27+09:00
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
+
+app = 'telegram-bot-encar-quiet-water-6573'
+primary_region = 'sin'
+
+[build]
+
+[[vm]]
+  memory = '256mb'
+  cpus = 1
+  memory_mb = 256
