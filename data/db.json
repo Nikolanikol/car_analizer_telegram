@@ -1,0 +1,14 @@
+{
+  "users": {
+    "422367380": {
+      "requestCount": 11,
+      "activated": true
+    }
+  },
+  "keys": {
+    "C6VU-8QQ4-CXZS": {
+      "used": true,
+      "usedBy": 422367380
+    }
+  }
+}
