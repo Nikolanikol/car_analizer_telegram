@@ -48,7 +48,7 @@ export function formatKbchaReport(data: KbchaData, carSeq: string, short = false
   const lines: string[] = [];
   const url = `https://www.kbchachacha.com/public/car/detail.kbc?carSeq=${carSeq}`;
   const modelEn = translateModelName(data.modelName);
-  const hasAccident = data.accident.includes('사고있음');
+  const hasAccident = (data.accident ?? '').includes('사고있음');
 
   if (short) {
     // ── Короткое сообщение ────────────────────────────────────────────────────

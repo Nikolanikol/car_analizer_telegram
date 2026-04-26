@@ -98,57 +98,60 @@ export interface EncarData {
 const BASE = 'https://api.encar.com/v1/readside';
 
 export async function fetchVehicle(id: string): Promise<EncarVehicle> {
-  const { data } = await axios.get(`${BASE}/vehicle/${id}`);
-  return {
-    vehicleId: data.vehicleId,
-    vehicleNo: data.vehicleNo,
-    vin: data.vin,
-    category: {
-      manufacturerName: data.category.manufacturerName,
-      manufacturerEnglishName: data.category.manufacturerEnglishName ?? '',
-      modelName: data.category.modelName,
-      gradeName: data.category.gradeName,
-      gradeEnglishName: data.category.gradeEnglishName ?? '',
-      yearMonth: data.category.yearMonth,
-      formYear: data.category.formYear,
-    },
-    spec: {
-      mileage: data.spec.mileage,
-      displacement: data.spec.displacement,
-      transmissionName: data.spec.transmissionName,
-      fuelName: data.spec.fuelName,
-      colorName: data.spec.colorName,
-      customColor: data.spec.customColor ?? null,
-      bodyName: data.spec.bodyName,
-    },
-    advertisement: {
-      price: data.advertisement.price,
-      status: data.advertisement.status,
-    },
-    contact: {
-      address: data.contact.address,
-      phone: data.contact.no ?? '',
-    },
-    condition: {
-      accident: {
-        recordView: data.condition.accident.recordView,
-        resumeView: data.condition.accident.resumeView,
+  try {
+    const { data } = await axios.get(`${BASE}/vehicle/${id}`, { timeout: 10000 });
+    return {
+      vehicleId: data.vehicleId,
+      vehicleNo: data.vehicleNo,
+      vin: data.vin,
+      category: {
+        manufacturerName: data.category.manufacturerName,
+        manufacturerEnglishName: data.category.manufacturerEnglishName ?? '',
+        modelName: data.category.modelName,
+        gradeName: data.category.gradeName,
+        gradeEnglishName: data.category.gradeEnglishName ?? '',
+        yearMonth: data.category.yearMonth,
+        formYear: data.category.formYear,
       },
-    },
-  };
+      spec: {
+        mileage: data.spec.mileage,
+        displacement: data.spec.displacement,
+        transmissionName: data.spec.transmissionName,
+        fuelName: data.spec.fuelName,
+        colorName: data.spec.colorName,
+        customColor: data.spec.customColor ?? null,
+        bodyName: data.spec.bodyName,
+      },
+      advertisement: {
+        price: data.advertisement.price,
+        status: data.advertisement.status,
+      },
+      contact: {
+        address: data.contact.address,
+        phone: data.contact.no ?? '',
+      },
+      condition: {
+        accident: {
+          recordView: data.condition.accident.recordView,
+          resumeView: data.condition.accident.resumeView,
+        },
+      },
+    };
+  } catch (e: any) {
+    const status = e.response?.status;
+    if (status === 404) throw new Error('Объявление не найдено или удалено');
+    if (status === 403) throw new Error('Encar заблокировал запрос. Попробуй позже');
+    if (e.code === 'ECONNABORTED') throw new Error('Encar не отвечает. Попробуй позже');
+    throw new Error('Не удалось получить данные с Encar. Попробуй позже');
+  }
 }
 
 export async function fetchRecord(id: string, vehicleNo: string): Promise<EncarRecord | null> {
   const normalizedNo = vehicleNo.replace(/\s+/g, '');
   const encodedNo = encodeURIComponent(normalizedNo);
   const url = `${BASE}/record/vehicle/${id}/open?vehicleNo=${encodedNo}`;
-  log(C.cyan,   'fetchRecord', `id        = ${C.bold}${id}${C.reset}`);
-  log(C.cyan,   'fetchRecord', `vehicleNo = ${C.bold}${vehicleNo}${C.reset}${normalizedNo !== vehicleNo ? ` → ${C.bold}${normalizedNo}${C.reset} (убран пробел)` : ''}`);
-  log(C.cyan,   'fetchRecord', `encoded   = ${C.bold}${encodedNo}${C.reset}`);
-  log(C.yellow, 'fetchRecord', `GET ${url}`);
   try {
-    const { data } = await axios.get(url);
-    log(C.green, 'fetchRecord', `200 OK`);
+    const { data } = await axios.get(url, { timeout: 10000 });
     return {
       carNo: data.carNo,
       year: data.year,
@@ -169,9 +172,7 @@ export async function fetchRecord(id: string, vehicleNo: string): Promise<EncarR
       carInfoChanges: data.carInfoChanges ?? [],
       accidents: data.accidents ?? [],
     };
-  } catch (e: any) {
-    const status = e.response?.status ?? 'network error';
-    log(C.red, 'fetchRecord', `${status} — ${e.message}`);
+  } catch {
     return null;
   }
 }
@@ -181,7 +182,7 @@ const OK_STATUS_CODES = new Set(['1', '2', '3']);
 
 export async function fetchInspection(id: string): Promise<EncarInspection | null> {
   try {
-    const { data } = await axios.get(`${BASE}/inspection/vehicle/${id}`);
+    const { data } = await axios.get(`${BASE}/inspection/vehicle/${id}`, { timeout: 10000 });
     const detail = data.master?.detail;
     if (!detail) return null;
 
@@ -215,7 +216,7 @@ export async function fetchInspection(id: string): Promise<EncarInspection | nul
       }));
 
     return {
-      accident: detail.accdient ?? false,
+      accident: detail.accident ?? false,
       waterlog: detail.waterlog ?? false,
       usageTypes: (detail.usageChangeTypes ?? []).map((u: any) => u.title),
       boardState: detail.boardStateType?.title ?? '',
@@ -245,19 +246,13 @@ function log(color: string, tag: string, msg: string) {
 }
 
 export async function fetchEncarData(id: string): Promise<EncarData> {
-  log(C.cyan, 'encar', `fetchVehicle  id=${id}`);
   const vehicle = await fetchVehicle(id);
   const canonicalId = vehicle.vehicleId.toString();
-  log(C.cyan, 'encar', `vehicleNo=${vehicle.vehicleNo}  canonicalId=${canonicalId}${canonicalId !== id ? ` (исходный: ${id})` : ''}  → fetchRecord + fetchInspection`);
 
   const [record, inspection] = await Promise.all([
     fetchRecord(canonicalId, vehicle.vehicleNo),
     fetchInspection(canonicalId),
   ]);
-
-  log(record     ? C.green  : C.yellow, 'encar', `fetchRecord      ${record     ? '✓' : '— нет доступа'}`);
-  log(inspection ? C.green  : C.yellow, 'encar', `fetchInspection  ${inspection ? '✓' : '— нет данных'}`);
-  log(C.green, 'encar', `готово`);
 
   return { vehicle, record, inspection };
 }

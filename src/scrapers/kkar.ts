@@ -63,6 +63,7 @@ export async function fetchKkarData(carCd: string): Promise<KkarData> {
   log(C.cyan, 'kkar', `GET ${url}`);
 
   const { data: body } = await axios.get(url, {
+    timeout: 10000,
     headers: {
       'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36',
       'Accept': 'application/json',
@@ -73,6 +74,8 @@ export async function fetchKkarData(carCd: string): Promise<KkarData> {
   if (!body.success) {
     throw new Error(`kkar API вернул ошибку: ${body.message ?? body.returnCode}`);
   }
+
+  if (!body.data?.rvo) throw new Error('Не удалось получить данные с Kcar. Попробуй позже');
 
   const r = body.data.rvo;
   const h = body.data.carhistory ?? {};

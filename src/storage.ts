@@ -22,29 +22,40 @@ interface DB {
 }
 
 function loadDB(): DB {
-  if (!fs.existsSync(DATA_DIR)) {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
-  }
-  if (!fs.existsSync(DB_PATH)) {
+  try {
+    if (!fs.existsSync(DATA_DIR)) {
+      fs.mkdirSync(DATA_DIR, { recursive: true });
+    }
+    if (!fs.existsSync(DB_PATH)) {
+      return { users: {}, keys: {} };
+    }
+    return JSON.parse(fs.readFileSync(DB_PATH, 'utf-8'));
+  } catch (e: any) {
+    console.error(`[storage] Ошибка загрузки базы данных: ${e.message}`);
     return { users: {}, keys: {} };
   }
-  return JSON.parse(fs.readFileSync(DB_PATH, 'utf-8'));
 }
 
 function saveDB(db: DB): void {
-  if (!fs.existsSync(DATA_DIR)) {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
+  try {
+    if (!fs.existsSync(DATA_DIR)) {
+      fs.mkdirSync(DATA_DIR, { recursive: true });
+    }
+    fs.writeFileSync(DB_PATH, JSON.stringify(db, null, 2));
+  } catch (e: any) {
+    console.error(`[storage] Ошибка сохранения базы данных: ${e.message}`);
   }
-  fs.writeFileSync(DB_PATH, JSON.stringify(db, null, 2));
 }
 
+// Единственный экземпляр БД в памяти — загружается один раз при старте
+let db: DB = loadDB();
+console.log(`[storage] База данных загружена: ${Object.keys(db.users).length} пользователей, ${Object.keys(db.keys).length} ключей`);
+
 export function getUser(userId: number): UserData {
-  const db = loadDB();
   return db.users[String(userId)] || { requestCount: 0, activated: false };
 }
 
 export function incrementRequest(userId: number): number {
-  const db = loadDB();
   if (!db.users[String(userId)]) {
     db.users[String(userId)] = { requestCount: 0, activated: false };
   }
@@ -54,7 +65,6 @@ export function incrementRequest(userId: number): number {
 }
 
 export function activateUser(userId: number, key: string): boolean {
-  const db = loadDB();
   const upperKey = key.toUpperCase();
   if (!db.keys[upperKey] || db.keys[upperKey].used) return false;
   db.keys[upperKey].used = true;
@@ -72,8 +82,34 @@ export function generateKey(): string {
   const segment = () =>
     Array.from({ length: 4 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
   const key = `${segment()}-${segment()}-${segment()}`;
-  const db = loadDB();
   db.keys[key] = { used: false, usedBy: null };
   saveDB(db);
   return key;
+}
+
+export function getStats(): string {
+  const users = Object.values(db.users);
+  const keys = Object.values(db.keys);
+
+  const totalUsers     = users.length;
+  const activatedUsers = users.filter(u => u.activated).length;
+  const freeUsers      = totalUsers - activatedUsers;
+  const totalRequests  = users.reduce((sum, u) => sum + u.requestCount, 0);
+  const totalKeys      = keys.length;
+  const usedKeys       = keys.filter(k => k.used).length;
+  const freeKeys       = totalKeys - usedKeys;
+
+  return (
+    `📊 <b>Статистика бота</b>\n\n` +
+    `👥 <b>Пользователи</b>\n` +
+    `Всего: <b>${totalUsers}</b>\n` +
+    `С ключом: <b>${activatedUsers}</b>\n` +
+    `Бесплатных: <b>${freeUsers}</b>\n\n` +
+    `🔢 <b>Запросы</b>\n` +
+    `Всего сделано: <b>${totalRequests}</b>\n\n` +
+    `🔑 <b>Ключи</b>\n` +
+    `Всего создано: <b>${totalKeys}</b>\n` +
+    `Использовано: <b>${usedKeys}</b>\n` +
+    `Свободных: <b>${freeKeys}</b>`
+  );
 }

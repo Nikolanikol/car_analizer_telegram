@@ -57,6 +57,7 @@ export async function fetchKbchaData(carSeq: string): Promise<KbchaData> {
   log(C.cyan, 'kbcha', `GET ${url}`);
 
   const { data: html } = await axios.get(url, {
+    timeout: 10000,
     headers: {
       'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36',
       'Accept-Language': 'ko-KR,ko;q=0.9',
@@ -65,10 +66,6 @@ export async function fetchKbchaData(carSeq: string): Promise<KbchaData> {
   });
 
   log(C.green, 'kbcha', `HTML получен, парсим...`);
-  log(C.yellow, 'kbcha', `--- HTML DUMP (первые 5000 символов) ---`);
-  console.log(html.slice(0, 5000));
-  log(C.yellow, 'kbcha', `--- END DUMP ---`);
-
   const $ = cheerio.load(html);
 
   // ── Заголовок и номер авто ─────────────────────────────────────────────────
