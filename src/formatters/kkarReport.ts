@@ -1,56 +1,76 @@
 import { KkarData } from '../scrapers/kkar';
 import { translateModelName, MANUFACTURER_MAP } from './translations';
+import { t, type Lang } from '../i18n';
 
 function esc(text: string): string {
   return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
-const FUEL_MAP: Record<string, string> = {
-  '가솔린': 'Бензин', '디젤': 'Дизель', 'LPG': 'ГАЗ',
-  '전기': 'Электро', '하이브리드': 'Гибрид',
-  '가솔린+전기': 'Гибрид (Бензин+Электро)',
-  '디젤+전기': 'Гибрид (Дизель+Электро)',
+type BiMap = Record<string, { ru: string; en: string }>;
+
+const FUEL_MAP: BiMap = {
+  '가솔린':      { ru: 'Бензин',                   en: 'Gasoline' },
+  '디젤':        { ru: 'Дизель',                   en: 'Diesel' },
+  'LPG':         { ru: 'ГАЗ',                      en: 'LPG' },
+  '전기':        { ru: 'Электро',                  en: 'Electric' },
+  '하이브리드':  { ru: 'Гибрид',                   en: 'Hybrid' },
+  '가솔린+전기': { ru: 'Гибрид (Бензин+Электро)',  en: 'Hybrid (Gas+Electric)' },
+  '디젤+전기':   { ru: 'Гибрид (Дизель+Электро)',  en: 'Hybrid (Diesel+Electric)' },
 };
 
-const TRANSMISSION_MAP: Record<string, string> = {
-  '오토': 'Автомат', '수동': 'Механика', 'CVT': 'Вариатор',
-  '듀얼클러치': 'Робот (DCT)',
+const TRANSMISSION_MAP: BiMap = {
+  '오토':       { ru: 'Автомат',     en: 'Automatic' },
+  '수동':       { ru: 'Механика',    en: 'Manual' },
+  'CVT':        { ru: 'Вариатор',    en: 'CVT' },
+  '듀얼클러치': { ru: 'Робот (DCT)', en: 'Dual-clutch (DCT)' },
 };
 
-const DRIVE_MAP: Record<string, string> = {
-  '전륜': 'Передний (FWD)',
-  '후륜': 'Задний (RWD)',
-  '사륜': 'Полный (AWD)',
-  '4WD': 'Полный (4WD)',
-  'AWD': 'Полный (AWD)',
+const DRIVE_MAP: BiMap = {
+  '전륜': { ru: 'Передний (FWD)', en: 'Front-wheel (FWD)' },
+  '후륜': { ru: 'Задний (RWD)',   en: 'Rear-wheel (RWD)' },
+  '사륜': { ru: 'Полный (AWD)',   en: 'All-wheel (AWD)' },
+  '4WD':  { ru: 'Полный (4WD)',   en: '4-wheel (4WD)' },
+  'AWD':  { ru: 'Полный (AWD)',   en: 'All-wheel (AWD)' },
 };
 
-const COLOR_MAP: Record<string, string> = {
-  '흰색': 'Белый', '화이트': 'Белый',
-  '검정': 'Чёрный', '검정색': 'Чёрный', '블랙': 'Чёрный',
-  '은색': 'Серебристый', '실버': 'Серебристый',
-  '회색': 'Серый', '쥐색': 'Графитовый', '다크그레이': 'Тёмно-серый',
-  '빨간색': 'Красный', '레드': 'Красный',
-  '파란색': 'Синий', '청색': 'Синий', '블루': 'Синий',
-  '남색': 'Тёмно-синий', '네이비': 'Тёмно-синий',
-  '갈색': 'Коричневый', '브라운': 'Коричневый',
-  '베이지': 'Бежевый', '샴페인': 'Шампань',
-  '진주색': 'Перламутровый', '펄': 'Перламутровый',
-  '골드': 'Золотой',
+const COLOR_MAP: BiMap = {
+  '흰색':    { ru: 'Белый',         en: 'White' },
+  '화이트':  { ru: 'Белый',         en: 'White' },
+  '검정':    { ru: 'Чёрный',        en: 'Black' },
+  '검정색':  { ru: 'Чёрный',        en: 'Black' },
+  '블랙':    { ru: 'Чёрный',        en: 'Black' },
+  '은색':    { ru: 'Серебристый',   en: 'Silver' },
+  '실버':    { ru: 'Серебристый',   en: 'Silver' },
+  '회색':    { ru: 'Серый',         en: 'Grey' },
+  '쥐색':    { ru: 'Графитовый',    en: 'Graphite' },
+  '다크그레이': { ru: 'Тёмно-серый', en: 'Dark grey' },
+  '빨간색':  { ru: 'Красный',       en: 'Red' },
+  '레드':    { ru: 'Красный',       en: 'Red' },
+  '파란색':  { ru: 'Синий',         en: 'Blue' },
+  '청색':    { ru: 'Синий',         en: 'Blue' },
+  '블루':    { ru: 'Синий',         en: 'Blue' },
+  '남색':    { ru: 'Тёмно-синий',   en: 'Navy blue' },
+  '네이비':  { ru: 'Тёмно-синий',   en: 'Navy' },
+  '갈색':    { ru: 'Коричневый',    en: 'Brown' },
+  '브라운':  { ru: 'Коричневый',    en: 'Brown' },
+  '베이지':  { ru: 'Бежевый',       en: 'Beige' },
+  '샴페인':  { ru: 'Шампань',       en: 'Champagne' },
+  '진주색':  { ru: 'Перламутровый', en: 'Pearl' },
+  '펄':      { ru: 'Перламутровый', en: 'Pearl' },
+  '골드':    { ru: 'Золотой',       en: 'Gold' },
 };
 
 function phone(num: string): string {
   return num ? esc(num) : '—';
 }
 
-function tr(map: Record<string, string>, value: string): string {
+function tr(map: BiMap, value: string, lang: Lang): string {
   if (!value) return '—';
-  const translated = map[value];
-  return translated ? `${translated} (${esc(value)})` : esc(value);
+  const entry = map[value];
+  return entry ? `${entry[lang]} (${esc(value)})` : esc(value);
 }
 
 function formatDate(d: string): string {
-  // 20201015 → 15.10.2020
   if (d.length === 8) return `${d.slice(6)}.${d.slice(4, 6)}.${d.slice(0, 4)}`;
   return esc(d);
 }
@@ -59,62 +79,63 @@ function manufacturerEn(name: string): string {
   return MANUFACTURER_MAP[name] ?? name;
 }
 
-export function formatKkarReport(data: KkarData, short = false): string {
+export function formatKkarReport(data: KkarData, short = false, lang: Lang = 'ru'): string {
   const lines: string[] = [];
+  const s = t(lang);
   const url = `https://www.kcar.com/bc/detail/carInfoDtl?i_sCarCd=${data.carCd}`;
 
-  const manufacturerEn_val = manufacturerEn(data.manufacturerName);
+  const mfrEn = manufacturerEn(data.manufacturerName);
   const modelEn = translateModelName(data.modelName);
-  const fullName = `${manufacturerEn_val} ${modelEn}`;
+  const fullName = `${mfrEn} ${modelEn}`;
+  const locale = lang === 'ru' ? 'ru-RU' : 'en-US';
 
   const hasMyAccident    = data.myAccidentCnt > 0;
   const hasOtherAccident = data.otherAccidentCnt > 0;
   const hasAnyAccident   = hasMyAccident || hasOtherAccident;
 
+  const mileageFmt = `${data.mileage.toLocaleString(locale)} ${lang === 'ru' ? 'км' : 'km'}`;
+
   if (short) {
-    // ── Короткое сообщение ──────────────────────────────────────────────────
     const insurancePart = hasMyAccident
-      ? `страховых на ${data.myAccidentCost.toLocaleString('ru-RU')} ₩`
-      : '✅ страховых нет';
+      ? s.shortInsuranceCost(data.myAccidentCost.toLocaleString(locale))
+      : s.shortNoInsurance;
 
     lines.push(`<b>${esc(fullName)}</b> / ${esc(data.vehicleNo)} / ${insurancePart}`);
 
     const flags: string[] = [];
-    if (data.totalLossCnt > 0)   flags.push(`🚨 Тотальные потери: ${data.totalLossCnt}`);
-    if (data.floodCnt > 0)       flags.push(`🚨 Потоп (тотал): ${data.floodCnt}`);
-    if (data.theftCnt > 0)       flags.push(`🚨 Угон: ${data.theftCnt}`);
-    if (data.ownerChangeCnt > 0) flags.push(`⚠️ Смена владельца: ${data.ownerChangeCnt}`);
-    if (data.rentHistory)        flags.push(`⚠️ История проката`);
-    if (data.bizuseHistory)      flags.push(`⚠️ Коммерческое использование`);
+    if (data.totalLossCnt > 0)   flags.push(s.reportTotalLoss(data.totalLossCnt));
+    if (data.floodCnt > 0)       flags.push(s.reportFloodLoss(data.floodCnt));
+    if (data.theftCnt > 0)       flags.push(s.reportTheft(data.theftCnt));
+    if (data.ownerChangeCnt > 0) flags.push(s.reportOwnerChange(data.ownerChangeCnt));
+    if (data.rentHistory)        flags.push(s.reportRentHistory);
+    if (data.bizuseHistory)      flags.push(s.reportBizUseHistory);
 
     if (flags.length > 0) {
       lines.push('');
       lines.push(...flags);
     }
-
     return lines.join('\n');
   }
 
-  // ── Полное сообщение ──────────────────────────────────────────────────────
   lines.push(
     `🚗 <b>${esc(fullName)}</b>`,
     `<i>${esc(data.gradeName)}</i>`,
     `<a href="${url}">${url}</a>`,
     '',
-    '📋 <b>Основные данные</b>',
-    `Номер авто:   <b>${esc(data.vehicleNo)}</b>`,
-    `VIN:          <b>${data.vin ? esc(data.vin) : '—'}</b>`,
-    `Год выпуска:  <b>${data.year}</b>`,
-    `Пробег:       <b>${data.mileage.toLocaleString('ru-RU')} км</b>`,
-    `Цена:         <b>${data.price.toLocaleString('ru-RU')} ₩</b>`,
-    `КПП:          ${tr(TRANSMISSION_MAP, data.transmission)}`,
-    `Топливо:      ${tr(FUEL_MAP, data.fuelType)}`,
-    `Двигатель:    ${data.displacement ? (data.displacement / 1000).toFixed(1) + 'л' : '—'}`,
-    `Цвет:         ${tr(COLOR_MAP, data.color)}`,
-    `Привод:       ${tr(DRIVE_MAP, data.driveType)}`,
-    `Адрес:        ${esc(data.address)}`,
+    s.reportMainData,
+    `${s.reportPlate.padEnd(14)}<b>${esc(data.vehicleNo)}</b>`,
+    `${s.reportVin.padEnd(14)}<b>${data.vin ? esc(data.vin) : '—'}</b>`,
+    `${s.reportYear.padEnd(14)}<b>${data.year}</b>`,
+    `${s.reportMileage.padEnd(14)}<b>${mileageFmt}</b>`,
+    `${s.reportPrice.padEnd(14)}<b>${data.price.toLocaleString(locale)} ₩</b>`,
+    `${s.reportTransmission.padEnd(14)}${tr(TRANSMISSION_MAP, data.transmission, lang)}`,
+    `${s.reportFuel.padEnd(14)}${tr(FUEL_MAP, data.fuelType, lang)}`,
+    `${s.reportEngine.padEnd(14)}${data.displacement ? (data.displacement / 1000).toFixed(1) + 'L' : '—'}`,
+    `${s.reportColor.padEnd(14)}${tr(COLOR_MAP, data.color, lang)}`,
+    `${s.reportDrive.padEnd(14)}${tr(DRIVE_MAP, data.driveType, lang)}`,
+    `${s.reportAddress.padEnd(14)}${esc(data.address)}`,
     '',
-    '🔍 <b>Страховая история</b>',
+    s.reportInsuranceHistory,
   );
 
   const allClean = !hasAnyAccident && data.totalLossCnt === 0 && data.floodCnt === 0
@@ -122,37 +143,30 @@ export function formatKkarReport(data: KkarData, short = false): string {
     && !data.rentHistory && !data.bizuseHistory;
 
   if (allClean) {
-    lines.push('✅ Чистая история');
+    lines.push(s.reportCleanHistory);
   } else {
     if (hasMyAccident)
-      lines.push(`⚠️ Аварий (виновник): ${data.myAccidentCnt} — ${data.myAccidentCost.toLocaleString('ru-RU')} ₩`);
+      lines.push(s.reportAccidentFault(data.myAccidentCnt, data.myAccidentCost.toLocaleString(locale)));
     if (hasOtherAccident)
-      lines.push(`⚠️ Аварий (пострадавший): ${data.otherAccidentCnt} — ${data.otherAccidentCost.toLocaleString('ru-RU')} ₩`);
-    if (data.totalLossCnt > 0)
-      lines.push(`🚨 Тотальные потери: ${data.totalLossCnt}`);
-    if (data.floodCnt > 0)
-      lines.push(`🚨 Потоп (тотал): ${data.floodCnt}`);
-    if (data.theftCnt > 0)
-      lines.push(`🚨 Угон: ${data.theftCnt}`);
-    if (data.ownerChangeCnt > 0)
-      lines.push(`⚠️ Смена владельца: ${data.ownerChangeCnt}`);
-    if (data.rentHistory)
-      lines.push(`⚠️ История проката`);
-    if (data.bizuseHistory)
-      lines.push(`⚠️ Коммерческое использование`);
+      lines.push(s.reportAccidentVictim(data.otherAccidentCnt, data.otherAccidentCost.toLocaleString(locale)));
+    if (data.totalLossCnt > 0)   lines.push(s.reportTotalLoss(data.totalLossCnt));
+    if (data.floodCnt > 0)       lines.push(s.reportFloodLoss(data.floodCnt));
+    if (data.theftCnt > 0)       lines.push(s.reportTheft(data.theftCnt));
+    if (data.ownerChangeCnt > 0) lines.push(s.reportOwnerChange(data.ownerChangeCnt));
+    if (data.rentHistory)        lines.push(s.reportRentHistory);
+    if (data.bizuseHistory)      lines.push(s.reportBizUseHistory);
   }
 
   if (data.firstRegDate)
-    lines.push(`Первая рег.:    ${formatDate(data.firstRegDate)}`);
+    lines.push(`${s.reportFirstReg.padEnd(16)}${formatDate(data.firstRegDate)}`);
 
-  // ── Продавец ─────────────────────────────────────────────────────────────
   if (data.sellerName || data.centerName) {
     lines.push('');
-    lines.push('👤 <b>Продавец</b>');
-    if (data.centerName)  lines.push(`Центр:    ${esc(data.centerName)}`);
-    if (data.sellerName)  lines.push(`Дилер:    ${esc(data.sellerName)}`);
-    if (data.sellerPhone) lines.push(`Тел.:     ${phone(data.sellerPhone)}`);
-    if (data.address)     lines.push(`Адрес:    ${esc(data.address)}`);
+    lines.push(s.reportSeller);
+    if (data.centerName)  lines.push(`${s.reportCenter.padEnd(10)}${esc(data.centerName)}`);
+    if (data.sellerName)  lines.push(`${s.reportDealer.padEnd(10)}${esc(data.sellerName)}`);
+    if (data.sellerPhone) lines.push(`${s.reportPhone.padEnd(10)}${phone(data.sellerPhone)}`);
+    if (data.address)     lines.push(`${s.reportAddress.padEnd(10)}${esc(data.address)}`);
   }
 
   return lines.join('\n');

@@ -13,6 +13,7 @@ interface UserData {
   lastName: string | null;
   username: string | null;
   joinedAt: string;
+  language: 'ru' | 'en';
 }
 
 export interface KeyData {
@@ -54,6 +55,7 @@ function migrateDB(raw: any): DB {
         lastName: old.lastName ?? null,
         username: old.username ?? null,
         joinedAt: old.joinedAt ?? new Date().toISOString(),
+        language: old.language ?? 'ru',
       };
       continue;
     }
@@ -77,7 +79,7 @@ function migrateDB(raw: any): DB {
       requestBalance = Math.max(0, FREE_REQUESTS - (old.requestCount ?? 0));
     }
 
-    db.users[uid] = { requestBalance, activatedKeys, firstName: '—', lastName: null, username: null, joinedAt: new Date().toISOString() };
+    db.users[uid] = { requestBalance, activatedKeys, firstName: '—', lastName: null, username: null, joinedAt: new Date().toISOString(), language: 'ru' };
   }
 
   return db;
@@ -115,6 +117,7 @@ function ensureUser(userId: number): UserData {
       lastName: null,
       username: null,
       joinedAt: new Date().toISOString(),
+      language: 'ru',
     };
   }
   return db.users[String(userId)];
@@ -124,6 +127,16 @@ export interface UserProfile {
   firstName: string;
   lastName?: string | null;
   username?: string | null;
+}
+
+export function getUserLanguage(userId: number): 'ru' | 'en' {
+  return db.users[String(userId)]?.language ?? 'ru';
+}
+
+export function setUserLanguage(userId: number, lang: 'ru' | 'en'): void {
+  const user = ensureUser(userId);
+  user.language = lang;
+  saveDB(db);
 }
 
 export function saveUserProfile(userId: number, profile: UserProfile): void {

@@ -1,5 +1,6 @@
 import { EncarData } from '../scrapers/encar';
 import { MODEL_MAP, translateModelName } from './translations';
+import { t, type Lang } from '../i18n';
 
 function esc(text: string): string {
   return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -9,386 +10,356 @@ function phone(num: string): string {
   return num ? esc(num) : '—';
 }
 
-function yn(val: boolean, dangerOnTrue = true): string {
-  if (val) return dangerOnTrue ? '⚠️ Да' : '✅ Да';
-  return dangerOnTrue ? '✅ Нет' : '—';
-}
-
 function price(val: number): string {
   const krw = val * 10000;
   const formatted = krw.toLocaleString('ru-RU');
   return `<b>${formatted} ₩</b>`;
 }
 
-// ─── Словари переводов ────────────────────────────────────────────────────────
+// ─── Bilingual dictionaries ────────────────────────────────────────────────────
 
+type BiMap = Record<string, { ru: string; en: string }>;
 
-const FUEL_MAP: Record<string, string> = {
-  '가솔린': 'Бензин',
-  '디젤': 'Дизель',
-  'LPG': 'ГАЗ',
-  '전기': 'Электро',
-  '하이브리드': 'Гибрид',
-  '가솔린+전기': 'Гибрид (Бензин+Электро)',
-  '디젤+전기': 'Гибрид (Дизель+Электро)',
+const FUEL_MAP: BiMap = {
+  '가솔린':      { ru: 'Бензин',                    en: 'Gasoline' },
+  '디젤':        { ru: 'Дизель',                    en: 'Diesel' },
+  'LPG':         { ru: 'ГАЗ',                       en: 'LPG' },
+  '전기':        { ru: 'Электро',                   en: 'Electric' },
+  '하이브리드':  { ru: 'Гибрид',                    en: 'Hybrid' },
+  '가솔린+전기': { ru: 'Гибрид (Бензин+Электро)',   en: 'Hybrid (Gas+Electric)' },
+  '디젤+전기':   { ru: 'Гибрид (Дизель+Электро)',   en: 'Hybrid (Diesel+Electric)' },
 };
 
-const TRANSMISSION_MAP: Record<string, string> = {
-  '오토': 'Автомат',
-  '수동': 'Механика',
-  'CVT': 'Вариатор',
-  '듀얼클러치': 'Робот (DCT)',
-  'DCT': 'Робот (DCT)',
+const TRANSMISSION_MAP: BiMap = {
+  '오토':       { ru: 'Автомат',      en: 'Automatic' },
+  '수동':       { ru: 'Механика',     en: 'Manual' },
+  'CVT':        { ru: 'Вариатор',     en: 'CVT' },
+  '듀얼클러치': { ru: 'Робот (DCT)',  en: 'Dual-clutch (DCT)' },
+  'DCT':        { ru: 'Робот (DCT)',  en: 'Dual-clutch (DCT)' },
 };
 
-const BODY_MAP: Record<string, string> = {
-  'SUV': 'Внедорожник',
-  'RV': 'Внедорожник',
-  '세단': 'Седан',
-  '해치백': 'Хэтчбек',
-  '쿠페': 'Купе',
-  '밴': 'Фургон',
-  '트럭': 'Грузовик',
-  '승합': 'Минивэн',
-  '픽업트럭': 'Пикап',
-  '왜건': 'Универсал',
-  '컨버터블': 'Кабриолет',
-  '경차': 'Мини (A-класс)',
-  '소형차': 'Малый класс (B)',
-  '준중형차': 'Компакт (C-класс)',
-  '중형차': 'Средний класс (D)',
-  '대형차': 'Большой класс (E)',
-  '스포츠카': 'Спорткар',
-  '미니밴': 'Минивэн',
+const COLOR_MAP: BiMap = {
+  '흰색':    { ru: 'Белый',               en: 'White' },
+  '화이트':  { ru: 'Белый',               en: 'White' },
+  '크림':    { ru: 'Кремовый',            en: 'Cream' },
+  '검정':    { ru: 'Чёрный',              en: 'Black' },
+  '검은색':  { ru: 'Чёрный',              en: 'Black' },
+  '검정색':  { ru: 'Чёрный',              en: 'Black' },
+  '블랙':    { ru: 'Чёрный',              en: 'Black' },
+  '은색':    { ru: 'Серебристый',         en: 'Silver' },
+  '실버':    { ru: 'Серебристый',         en: 'Silver' },
+  '은회색':  { ru: 'Серебристо-серый',    en: 'Silver-grey' },
+  '회색':    { ru: 'Серый',               en: 'Grey' },
+  '그레이':  { ru: 'Серый',               en: 'Grey' },
+  '쥐색':    { ru: 'Графитовый',          en: 'Graphite' },
+  '진회색':  { ru: 'Тёмно-серый',         en: 'Dark grey' },
+  '다크그레이': { ru: 'Тёмно-серый',      en: 'Dark grey' },
+  '건메탈':  { ru: 'Тёмно-серый (Gunmetal)', en: 'Gunmetal' },
+  '빨간색':  { ru: 'Красный',             en: 'Red' },
+  '빨강':    { ru: 'Красный',             en: 'Red' },
+  '레드':    { ru: 'Красный',             en: 'Red' },
+  '와인':    { ru: 'Бордовый',            en: 'Wine' },
+  '버건디':  { ru: 'Бордовый',            en: 'Burgundy' },
+  '다크레드': { ru: 'Тёмно-красный',      en: 'Dark red' },
+  '파란색':  { ru: 'Синий',               en: 'Blue' },
+  '파랑':    { ru: 'Синий',               en: 'Blue' },
+  '블루':    { ru: 'Синий',               en: 'Blue' },
+  '남색':    { ru: 'Тёмно-синий',         en: 'Navy blue' },
+  '네이비':  { ru: 'Тёмно-синий',         en: 'Navy' },
+  '하늘색':  { ru: 'Голубой',             en: 'Sky blue' },
+  '청색':    { ru: 'Синий',               en: 'Blue' },
+  '딥블루':  { ru: 'Тёмно-синий',         en: 'Deep blue' },
+  '초록':    { ru: 'Зелёный',             en: 'Green' },
+  '그린':    { ru: 'Зелёный',             en: 'Green' },
+  '초록색':  { ru: 'Зелёный',             en: 'Green' },
+  '연두색':  { ru: 'Салатовый',           en: 'Light green' },
+  '카키':    { ru: 'Хаки',                en: 'Khaki' },
+  '올리브':  { ru: 'Оливковый',           en: 'Olive' },
+  '민트':    { ru: 'Мятный',              en: 'Mint' },
+  '노란색':  { ru: 'Жёлтый',             en: 'Yellow' },
+  '노랑':    { ru: 'Жёлтый',             en: 'Yellow' },
+  '옐로우':  { ru: 'Жёлтый',             en: 'Yellow' },
+  '주황':    { ru: 'Оранжевый',           en: 'Orange' },
+  '오렌지':  { ru: 'Оранжевый',           en: 'Orange' },
+  '갈색':    { ru: 'Коричневый',          en: 'Brown' },
+  '브라운':  { ru: 'Коричневый',          en: 'Brown' },
+  '베이지':  { ru: 'Бежевый',             en: 'Beige' },
+  '샴페인':  { ru: 'Шампань',             en: 'Champagne' },
+  '카멜':    { ru: 'Верблюжий',           en: 'Camel' },
+  '보라':    { ru: 'Фиолетовый',          en: 'Purple' },
+  '퍼플':    { ru: 'Фиолетовый',          en: 'Purple' },
+  '분홍':    { ru: 'Розовый',             en: 'Pink' },
+  '핑크':    { ru: 'Розовый',             en: 'Pink' },
+  '진주색':  { ru: 'Перламутровый',       en: 'Pearl' },
+  '펄':      { ru: 'Перламутровый',       en: 'Pearl' },
+  '진주':    { ru: 'Перламутровый',       en: 'Pearl' },
+  '골드':    { ru: 'Золотой',             en: 'Gold' },
+  '금색':    { ru: 'Золотой',             en: 'Gold' },
 };
 
-const COLOR_MAP: Record<string, string> = {
-  // Белый
-  '흰색': 'Белый', '화이트': 'Белый', '크림': 'Кремовый',
-  // Чёрный
-  '검정': 'Чёрный', '검은색': 'Чёрный', '검정색': 'Чёрный', '블랙': 'Чёрный',
-  // Серебристый / серый
-  '은색': 'Серебристый', '실버': 'Серебристый', '은회색': 'Серебристо-серый',
-  '회색': 'Серый', '그레이': 'Серый', '쥐색': 'Графитовый',
-  '진회색': 'Тёмно-серый', '다크그레이': 'Тёмно-серый', '건메탈': 'Тёмно-серый (Gunmetal)',
-  // Красный
-  '빨간색': 'Красный', '빨강': 'Красный', '레드': 'Красный',
-  '와인': 'Бордовый', '버건디': 'Бордовый', '다크레드': 'Тёмно-красный',
-  // Синий
-  '파란색': 'Синий', '파랑': 'Синий', '블루': 'Синий',
-  '남색': 'Тёмно-синий', '네이비': 'Тёмно-синий', '하늘색': 'Голубой',
-  '청색': 'Синий', '딥블루': 'Тёмно-синий',
-  // Зелёный
-  '초록': 'Зелёный', '그린': 'Зелёный', '초록색': 'Зелёный',
-  '연두색': 'Салатовый', '카키': 'Хаки', '올리브': 'Оливковый',
-  '민트': 'Мятный',
-  // Жёлтый / оранжевый
-  '노란색': 'Жёлтый', '노랑': 'Жёлтый', '옐로우': 'Жёлтый',
-  '주황': 'Оранжевый', '오렌지': 'Оранжевый',
-  // Коричневый / бежевый
-  '갈색': 'Коричневый', '브라운': 'Коричневый', '카키브라운': 'Коричнево-хаки',
-  '베이지': 'Бежевый', '샴페인': 'Шампань', '카멜': 'Верблюжий',
-  // Фиолетовый / розовый
-  '보라': 'Фиолетовый', '퍼플': 'Фиолетовый',
-  '분홍': 'Розовый', '핑크': 'Розовый',
-  // Перламутровый / золотой
-  '진주색': 'Перламутровый', '펄': 'Перламутровый', '진주': 'Перламутровый',
-  '골드': 'Золотой', '금색': 'Золотой',
+const USAGE_MAP: BiMap = {
+  '렌트': { ru: 'Прокат/Аренда',     en: 'Rental' },
+  '택시': { ru: 'Такси',             en: 'Taxi' },
+  '회사': { ru: 'Корпоративный',     en: 'Corporate' },
+  '관용': { ru: 'Служебный',         en: 'Government' },
 };
 
-const USAGE_MAP: Record<string, string> = {
-  '렌트': 'Прокат/Аренда',
-  '택시': 'Такси',
-  '회사': 'Корпоративный',
-  '관용': 'Служебный',
+const PART_MAP: BiMap = {
+  '프론트 도어':        { ru: 'Передняя дверь',        en: 'Front door' },
+  '리어 도어':          { ru: 'Задняя дверь',           en: 'Rear door' },
+  '도어':               { ru: 'Дверь',                  en: 'Door' },
+  '프론트 휀더':        { ru: 'Переднее крыло',         en: 'Front fender' },
+  '프론트 펜더':        { ru: 'Переднее крыло',         en: 'Front fender' },
+  '휀더':               { ru: 'Крыло',                  en: 'Fender' },
+  '펜더':               { ru: 'Крыло',                  en: 'Fender' },
+  '쿼터 패널':          { ru: 'Заднее крыло',           en: 'Quarter panel' },
+  '리어 휀더':          { ru: 'Заднее крыло',           en: 'Rear fender' },
+  '후드':               { ru: 'Капот',                  en: 'Hood' },
+  '트렁크 리드':        { ru: 'Крышка багажника',       en: 'Trunk lid' },
+  '트렁크':             { ru: 'Багажник',               en: 'Trunk' },
+  '루프 패널':          { ru: 'Крыша',                  en: 'Roof panel' },
+  '루프':               { ru: 'Крыша',                  en: 'Roof' },
+  '썬루프':             { ru: 'Люк',                    en: 'Sunroof' },
+  '사이드 실 패널':     { ru: 'Порог',                  en: 'Side sill panel' },
+  '사이드실':           { ru: 'Порог',                  en: 'Side sill' },
+  '프런트 패널':        { ru: 'Передняя панель',        en: 'Front panel' },
+  '프론트 패널':        { ru: 'Передняя панель',        en: 'Front panel' },
+  '리어 패널':          { ru: 'Задняя панель',          en: 'Rear panel' },
+  '인사이드 패널':      { ru: 'Внутренняя панель',      en: 'Inside panel' },
+  '대쉬패널':           { ru: 'Щит приборов',           en: 'Dashboard panel' },
+  '플로어패널':         { ru: 'Напольная панель',       en: 'Floor panel' },
+  '플로어':             { ru: 'Пол кузова',             en: 'Floor' },
+  '필러패널A':          { ru: 'Стойка A',               en: 'A-pillar' },
+  '필러패널B':          { ru: 'Стойка B',               en: 'B-pillar' },
+  '필러패널C':          { ru: 'Стойка C',               en: 'C-pillar' },
+  '필러 패널(A)':       { ru: 'Стойка A',               en: 'A-pillar' },
+  '필러 패널(B)':       { ru: 'Стойка B',               en: 'B-pillar' },
+  '필러 패널(C)':       { ru: 'Стойка C',               en: 'C-pillar' },
+  'A필러':              { ru: 'Стойка A',               en: 'A-pillar' },
+  'B필러':              { ru: 'Стойка B',               en: 'B-pillar' },
+  'C필러':              { ru: 'Стойка C',               en: 'C-pillar' },
+  '크로스 멤버':        { ru: 'Поперечина',             en: 'Cross member' },
+  '라디에이터 서포트':  { ru: 'Рамка радиатора',        en: 'Radiator support' },
+  '라디에이터서포트':   { ru: 'Рамка радиатора',        en: 'Radiator support' },
+  '프론트 사이드 멤버': { ru: 'Передний лонжерон',      en: 'Front side member' },
+  '리어 사이드 멤버':   { ru: 'Задний лонжерон',        en: 'Rear side member' },
+  '사이드 멤버':        { ru: 'Лонжерон',               en: 'Side member' },
+  '프론트 휠하우스':    { ru: 'Передняя арка',          en: 'Front wheel house' },
+  '리어 휠하우스':      { ru: 'Задняя арка',            en: 'Rear wheel house' },
+  '휠하우스':           { ru: 'Арка колеса',            en: 'Wheel house' },
+  '트렁크 플로어':      { ru: 'Пол багажника',          en: 'Trunk floor' },
+  '패키지 트레이':      { ru: 'Полка багажника',        en: 'Package tray' },
+  '볼트체결부품':       { ru: 'болтовое соединение',    en: 'bolt-on part' },
 };
 
-const PART_MAP: Record<string, string> = {
-  // Двери
-  '프론트 도어': 'Передняя дверь',
-  '리어 도어': 'Задняя дверь',
-  '도어': 'Дверь',
-  // Крылья
-  '프론트 휀더': 'Переднее крыло',
-  '프론트 펜더': 'Переднее крыло',
-  '휀더': 'Крыло',
-  '펜더': 'Крыло',
-  '쿼터 패널': 'Заднее крыло',
-  '리어 휀더': 'Заднее крыло',
-  // Капот / багажник / крыша
-  '후드': 'Капот',
-  '트렁크 리드': 'Крышка багажника',
-  '트렁크': 'Багажник',
-  '루프 패널': 'Крыша',
-  '루프': 'Крыша',
-  '썬루프': 'Люк',
-  // Пороги и панели
-  '사이드 실 패널': 'Порог',
-  '사이드실': 'Порог',
-  '프런트 패널': 'Передняя панель',
-  '프론트 패널': 'Передняя панель',
-  '리어 패널': 'Задняя панель',
-  '인사이드 패널': 'Внутренняя панель',
-  '대쉬패널': 'Щит приборов',
-  '플로어패널': 'Напольная панель',
-  '플로어': 'Пол кузова',
-  // Стойки
-  '필러패널A': 'Стойка A',
-  '필러패널B': 'Стойка B',
-  '필러패널C': 'Стойка C',
-  '필러 패널(A)': 'Стойка A',
-  '필러 패널(B)': 'Стойка B',
-  '필러 패널(C)': 'Стойка C',
-  'A필러': 'Стойка A',
-  'B필러': 'Стойка B',
-  'C필러': 'Стойка C',
-  // Силовые элементы
-  '크로스 멤버': 'Поперечина',
-  '라디에이터 서포트': 'Рамка радиатора',
-  '라디에이터서포트': 'Рамка радиатора',
-  '프론트 사이드 멤버': 'Передний лонжерон',
-  '리어 사이드 멤버': 'Задний лонжерон',
-  '사이드 멤버': 'Лонжерон',
-  '프론트 휠하우스': 'Передняя арка',
-  '리어 휠하우스': 'Задняя арка',
-  '휠하우스': 'Арка колеса',
-  '트렁크 플로어': 'Пол багажника',
-  '패키지 트레이': 'Полка багажника',
-  // Пояснение к болтовому крепежу
-  '볼트체결부품': 'болтовое соединение',
+const DAMAGE_MAP: BiMap = {
+  '교환(교체)': { ru: 'Замена',              en: 'Replaced' },
+  '교환':       { ru: 'Замена',              en: 'Replaced' },
+  '교체':       { ru: 'Замена',              en: 'Replaced' },
+  '판금/용접':  { ru: 'Рихтовка/сварка',    en: 'Panel beating/welding' },
+  '판금':       { ru: 'Рихтовка',           en: 'Panel beating' },
+  '용접':       { ru: 'Сварка',             en: 'Welding' },
+  '부식':       { ru: 'Коррозия',           en: 'Corrosion' },
+  '흠집':       { ru: 'Царапина',           en: 'Scratch' },
+  '요철':       { ru: 'Деформация',         en: 'Dent' },
+  '도장':       { ru: 'Покраска',           en: 'Repainted' },
+  '손상':       { ru: 'Повреждение',        en: 'Damage' },
 };
 
-const DAMAGE_MAP: Record<string, string> = {
-  '교환(교체)': 'Замена',
-  '교환': 'Замена',
-  '교체': 'Замена',
-  '판금/용접': 'Рихтовка/сварка',
-  '판금': 'Рихтовка',
-  '용접': 'Сварка',
-  '부식': 'Коррозия',
-  '흠집': 'Царапина',
-  '요철': 'Деформация',
-  '도장': 'Покраска',
-  '손상': 'Повреждение',
+const ITEM_TITLE_MAP: BiMap = {
+  '원동기':       { ru: 'Двигатель',                       en: 'Engine' },
+  '실린더 블록':  { ru: 'Блок цилиндров',                  en: 'Cylinder block' },
+  '실린더블록':   { ru: 'Блок цилиндров',                  en: 'Cylinder block' },
+  '오일팬':       { ru: 'Поддон картера',                  en: 'Oil pan' },
+  '실린더 헤드':  { ru: 'Головка блока',                   en: 'Cylinder head' },
+  '실린더헤드':   { ru: 'Головка блока',                   en: 'Cylinder head' },
+  '로커암커버':   { ru: 'Крышка клапанов',                 en: 'Valve cover' },
+  '오일필터':     { ru: 'Масляный фильтр',                 en: 'Oil filter' },
+  '인젝터':       { ru: 'Форсунки',                        en: 'Injectors' },
+  '타이밍벨트':   { ru: 'Ремень ГРМ',                      en: 'Timing belt' },
+  '변속기':       { ru: 'Коробка передач',                 en: 'Gearbox' },
+  '자동변속기':   { ru: 'АКПП',                            en: 'Automatic gearbox' },
+  '수동변속기':   { ru: 'МКПП',                            en: 'Manual gearbox' },
+  '동력전달':     { ru: 'Трансмиссия',                     en: 'Drivetrain' },
+  '추진축':       { ru: 'Карданный вал',                   en: 'Driveshaft' },
+  '추친축':       { ru: 'Карданный вал',                   en: 'Driveshaft' },
+  '베어링':       { ru: 'Подшипники',                      en: 'Bearings' },
+  '등속조인트':   { ru: 'ШРУС',                            en: 'CV joint' },
+  '차동장치':     { ru: 'Дифференциал',                    en: 'Differential' },
+  '조향장치':     { ru: 'Рулевое управление',              en: 'Steering system' },
+  '조향핸들':     { ru: 'Рулевое колесо',                  en: 'Steering wheel' },
+  '동력조향작동': { ru: 'Гидроусилитель руля',             en: 'Power steering' },
+  '제동장치':     { ru: 'Тормозная система',               en: 'Brake system' },
+  '브레이크마스터 실린더': { ru: 'Главный тормозной цилиндр', en: 'Brake master cylinder' },
+  '연료장치':     { ru: 'Топливная система',               en: 'Fuel system' },
+  '냉각장치':     { ru: 'Система охлаждения',              en: 'Cooling system' },
+  '배기장치':     { ru: 'Выхлопная система',               en: 'Exhaust system' },
+  '전기장치':     { ru: 'Электрооборудование',             en: 'Electrical system' },
 };
 
-/** Названия узлов и агрегатов */
-const ITEM_TITLE_MAP: Record<string, string> = {
-  // Двигатель
-  '원동기': 'Двигатель',
-  '실린더 블록': 'Блок цилиндров',
-  '실린더블록': 'Блок цилиндров',
-  '오일팬': 'Поддон картера',
-  '실린더 헤드': 'Головка блока',
-  '실린더헤드': 'Головка блока',
-  '로커암커버': 'Крышка клапанов',
-  '오일필터': 'Масляный фильтр',
-  '인젝터': 'Форсунки',
-  '타이밍벨트': 'Ремень ГРМ',
-  // Трансмиссия
-  '변속기': 'Коробка передач',
-  '자동변속기': 'АКПП',
-  '수동변속기': 'МКПП',
-  '동력전달': 'Трансмиссия',
-  '추진축': 'Карданный вал',
-  '추친축': 'Карданный вал',
-  '베어링': 'Подшипники',
-  '등속조인트': 'ШРУС',
-  '차동장치': 'Дифференциал',
-  // Рулевое
-  '조향장치': 'Рулевое управление',
-  '조향핸들': 'Рулевое колесо',
-  '동력조향작동': 'Гидроусилитель руля',
-  // Тормоза
-  '제동장치': 'Тормозная система',
-  '브레이크마스터 실린더': 'Главный тормозной цилиндр',
-  // Прочее
-  '연료장치': 'Топливная система',
-  '냉각장치': 'Система охлаждения',
-  '배기장치': 'Выхлопная система',
-  '전기장치': 'Электрооборудование',
+const ITEM_STATUS_MAP: BiMap = {
+  '미세누유': { ru: 'Незначительный подтёк масла',    en: 'Minor oil seep' },
+  '누유':     { ru: 'Подтёк масла',                   en: 'Oil leak' },
+  '심한누유': { ru: 'Сильный подтёк масла',           en: 'Heavy oil leak' },
+  '미세누수': { ru: 'Незначительный подтёк ОЖ',       en: 'Minor coolant seep' },
+  '누수':     { ru: 'Подтёк охлаждающей жидкости',    en: 'Coolant leak' },
+  '심한누수': { ru: 'Сильный подтёк ОЖ',              en: 'Heavy coolant leak' },
+  '불량':     { ru: 'Неисправность',                  en: 'Defective' },
+  '소음':     { ru: 'Посторонний шум',                en: 'Noise' },
+  '진동':     { ru: 'Вибрация',                       en: 'Vibration' },
+  '작동불량': { ru: 'Нарушение работы',               en: 'Malfunction' },
 };
 
-/** Статусы/состояния узлов */
-const ITEM_STATUS_MAP: Record<string, string> = {
-  '미세누유': 'Незначительный подтёк масла',
-  '누유': 'Подтёк масла',
-  '심한누유': 'Сильный подтёк масла',
-  '미세누수': 'Незначительный подтёк ОЖ',
-  '누수': 'Подтёк охлаждающей жидкости',
-  '심한누수': 'Сильный подтёк ОЖ',
-  '불량': 'Неисправность',
-  '소음': 'Посторонний шум',
-  '진동': 'Вибрация',
-  '작동불량': 'Нарушение работы',
-};
+// ─── Translation helpers ───────────────────────────────────────────────────────
 
-// ─── Вспомогательные функции перевода ─────────────────────────────────────────
-
-/** Перевод по словарю. Если перевод найден — "Русский (한국어)", иначе оригинал */
-function tr(map: Record<string, string>, value: string): string {
-  const translated = map[value];
-  if (!translated) return esc(value);
-  return `${translated} (${esc(value)})`;
+function tr(map: BiMap, value: string, lang: Lang): string {
+  const entry = map[value];
+  if (!entry) return esc(value);
+  return `${entry[lang]} (${esc(value)})`;
 }
 
-/** Перевод без сохранения оригинала (для мест, где скобки неуместны) */
-function trOnly(map: Record<string, string>, value: string): string {
-  return map[value] ?? value;
-}
-
-/** Перевод названия кузовной панели с учётом направления (우/좌) */
-function translateBodyPart(korean: string): string {
+function translateBodyPart(korean: string, lang: Lang): string {
   let result = korean;
+  const dirRight = lang === 'ru' ? ' (пр.)' : ' (R)';
+  const dirLeft  = lang === 'ru' ? ' (лев.)' : ' (L)';
+  result = result.replace(/\(우\)/g, dirRight).replace(/\(좌\)/g, dirLeft);
 
-  // Перевод направления (добавляем пробел перед скобкой)
-  result = result.replace(/\(우\)/g, ' (пр.)').replace(/\(좌\)/g, ' (лев.)');
-
-  // Перевод названия детали
-  for (const [ko, ru] of Object.entries(PART_MAP)) {
+  for (const [ko, vals] of Object.entries(PART_MAP)) {
     if (result.includes(ko)) {
-      result = result.replace(ko, ru);
+      result = result.replace(ko, vals[lang]);
       break;
     }
   }
 
-  // Если перевод изменился — показываем "Рус. (кор.)"
-  if (result !== korean) {
-    return `${result} (${esc(korean)})`;
-  }
+  if (result !== korean) return `${result} (${esc(korean)})`;
   return esc(korean);
 }
 
-/** Перевод типа повреждения */
-function translateDamage(korean: string): string {
-  return DAMAGE_MAP[korean] ?? esc(korean);
+function translateDamage(korean: string, lang: Lang): string {
+  return DAMAGE_MAP[korean]?.[lang] ?? esc(korean);
 }
 
-/** Перевод названия узла. Поддерживает разделители "/" и "및" (и) */
-function translateItemTitle(korean: string): string {
-  // Сначала пробуем найти полную фразу целиком
+function translateItemTitle(korean: string, lang: Lang): string {
   if (ITEM_TITLE_MAP[korean]) {
-    return `${ITEM_TITLE_MAP[korean]} (${esc(korean)})`;
+    return `${ITEM_TITLE_MAP[korean][lang]} (${esc(korean)})`;
   }
-  // Иначе разбиваем по разделителям " / " и " 및 " и переводим каждую часть
   const parts = korean.split(/\s*\/\s*|\s+및\s+/).map(p => p.trim());
-  const translated = parts.map(p => ITEM_TITLE_MAP[p] ?? p).join(' / ');
+  const translated = parts.map(p => ITEM_TITLE_MAP[p]?.[lang] ?? p).join(' / ');
   if (translated !== korean) return `${translated} (${esc(korean)})`;
   return esc(korean);
 }
 
-/** Перевод статуса узла */
-function translateItemStatus(korean: string): string {
-  return ITEM_STATUS_MAP[korean] ?? esc(korean);
+function translateItemStatus(korean: string, lang: Lang): string {
+  return ITEM_STATUS_MAP[korean]?.[lang] ?? esc(korean);
 }
 
-/** Перевод ключевых корейских слов в строке комплектации (градации) */
 function translateGrade(grade: string): string {
   return grade
-    .replace(/가솔린\+전기/g, 'Гибрид')
-    .replace(/디젤\+전기/g, 'Гибрид')
-    .replace(/가솔린/g, 'Бензин')
-    .replace(/디젤/g, 'Дизель')
-    .replace(/전기/g, 'Электро')
-    .replace(/하이브리드/g, 'Гибрид')
-    .replace(/LPG/g, 'ГАЗ');
+    .replace(/가솔린\+전기/g, 'Hybrid')
+    .replace(/디젤\+전기/g, 'Hybrid')
+    .replace(/가솔린/g, 'Gasoline')
+    .replace(/디젤/g, 'Diesel')
+    .replace(/전기/g, 'Electric')
+    .replace(/하이브리드/g, 'Hybrid')
+    .replace(/LPG/g, 'LPG');
 }
 
-// ─── Основная функция форматирования ──────────────────────────────────────────
+// ─── Main formatter ────────────────────────────────────────────────────────────
 
-export function formatEncarReport(data: EncarData, short = false): string {
+export function formatEncarReport(data: EncarData, short = false, lang: Lang = 'ru'): string {
   const { vehicle: v, record: r, inspection: ins } = data;
-
+  const s = t(lang);
   const lines: string[] = [];
 
+  const mileageFmt = lang === 'ru'
+    ? `${v.spec.mileage.toLocaleString()} км`
+    : `${v.spec.mileage.toLocaleString()} km`;
+
   if (short) {
-    // ── Короткое сообщение: одна строка + техосмотр ──────────────────────────
     const manufacturer = esc(v.category.manufacturerEnglishName || v.category.manufacturerName);
     const model        = esc(translateModelName(v.category.modelName));
     const plate        = esc(v.vehicleNo);
     const myAccidentCost = r ? r.myAccidentCost : 0;
     const insurancePart = myAccidentCost > 0
-      ? `страховых на ${myAccidentCost.toLocaleString('ru-RU')}₩`
-      : '✅ страховых нет';
+      ? s.shortInsuranceCost(myAccidentCost.toLocaleString('ru-RU'))
+      : s.shortNoInsurance;
 
     lines.push(`<b>${manufacturer} ${model}</b> / ${plate} / ${insurancePart}`);
     lines.push('');
   } else {
-    // ── Полное сообщение: заголовок + основные данные + страховая история ────
     lines.push(
       `🚗 <b>${esc(v.category.manufacturerEnglishName || v.category.manufacturerName)} ${esc(MODEL_MAP[v.category.modelName] ?? v.category.modelName)}</b>`,
       `<i>${esc(translateGrade(v.category.gradeName))}</i>`,
       `<a href="https://www.encar.com/dc/dc_cardetailview.do?carid=${v.vehicleId}">https://www.encar.com/dc/dc_cardetailview.do?carid=${v.vehicleId}</a>`,
       '',
-      '📋 <b>Основные данные</b>',
-      `Номер авто:   <b>${esc(v.vehicleNo)}</b>`,
-      `VIN:          <b>${v.vin ? esc(v.vin) : '—'}</b>`,
-      `Год выпуска:  <b>${esc(v.category.formYear)}</b>`,
-      `Пробег:       <b>${v.spec.mileage.toLocaleString()} км</b>`,
-      `Цена:         ${price(v.advertisement.price)}`,
-      `КПП:          ${tr(TRANSMISSION_MAP, v.spec.transmissionName)}`,
-      `Топливо:      ${tr(FUEL_MAP, v.spec.fuelName)}`,
-      `Двигатель:    ${(v.spec.displacement / 1000).toFixed(1)}л`,
-      `Цвет:         ${tr(COLOR_MAP, v.spec.colorName)}${v.spec.customColor ? ` — ${esc(v.spec.customColor)}` : ''}`,
-      `Адрес:        ${esc(v.contact.address)}`,
-      ...(v.contact.phone ? [`Тел.:         ${phone(v.contact.phone)}`] : []),
+      s.reportMainData,
+      `${s.reportPlate.padEnd(14)}<b>${esc(v.vehicleNo)}</b>`,
+      `${s.reportVin.padEnd(14)}<b>${v.vin ? esc(v.vin) : '—'}</b>`,
+      `${s.reportYear.padEnd(14)}<b>${esc(v.category.formYear)}</b>`,
+      `${s.reportMileage.padEnd(14)}<b>${mileageFmt}</b>`,
+      `${s.reportPrice.padEnd(14)}${price(v.advertisement.price)}`,
+      `${s.reportTransmission.padEnd(14)}${tr(TRANSMISSION_MAP, v.spec.transmissionName, lang)}`,
+      `${s.reportFuel.padEnd(14)}${tr(FUEL_MAP, v.spec.fuelName, lang)}`,
+      `${s.reportEngine.padEnd(14)}${(v.spec.displacement / 1000).toFixed(1)}L`,
+      `${s.reportColor.padEnd(14)}${tr(COLOR_MAP, v.spec.colorName, lang)}${v.spec.customColor ? ` — ${esc(v.spec.customColor)}` : ''}`,
+      `${s.reportAddress.padEnd(14)}${esc(v.contact.address)}`,
+      ...(v.contact.phone ? [`${s.reportPhone.padEnd(14)}${phone(v.contact.phone)}`] : []),
       '',
-      '🔍 <b>Страховая история</b>',
+      s.reportInsuranceHistory,
     );
 
     if (!r) {
-      lines.push('⚠️ Данные недоступны');
+      lines.push(s.reportNoData);
     } else {
       const hasAccident = r.myAccidentCnt > 0 || r.otherAccidentCnt > 0;
       if (!hasAccident && r.robberCnt === 0 && r.totalLossCnt === 0 && r.floodTotalLossCnt === 0) {
-        lines.push('✅ Чистая история');
+        lines.push(s.reportCleanHistory);
       } else {
         if (r.myAccidentCnt > 0)
-          lines.push(`⚠️ Аварий (виновник): ${r.myAccidentCnt} — ${r.myAccidentCost.toLocaleString()}₩`);
+          lines.push(s.reportAccidentFault(r.myAccidentCnt, r.myAccidentCost.toLocaleString()));
         if (r.otherAccidentCnt > 0)
-          lines.push(`⚠️ Аварий (пострадавший): ${r.otherAccidentCnt} — ${r.otherAccidentCost.toLocaleString()}₩`);
+          lines.push(s.reportAccidentVictim(r.otherAccidentCnt, r.otherAccidentCost.toLocaleString()));
         if (r.totalLossCnt > 0)
-          lines.push(`🚨 Тотальные потери: ${r.totalLossCnt}`);
+          lines.push(s.reportTotalLoss(r.totalLossCnt));
         if (r.floodTotalLossCnt > 0)
-          lines.push(`🚨 Потоп (тотал): ${r.floodTotalLossCnt}`);
+          lines.push(s.reportFloodLoss(r.floodTotalLossCnt));
         if (r.robberCnt > 0)
-          lines.push(`🚨 Угон: ${r.robberCnt}`);
+          lines.push(s.reportTheft(r.robberCnt));
       }
-      lines.push(`Первая рег.:    ${esc(r.firstDate)}`);
+      lines.push(`${s.reportFirstReg.padEnd(16)}${esc(r.firstDate)}`);
     }
     lines.push('');
   }
 
-  // ── Техосмотр ─────────────────────────────────────────────────────────────
-  if (!short) lines.push('🔧 <b>Техническая инспекция</b>');
+  if (!short) lines.push(s.reportInspection);
 
   if (!ins) {
-    if (!short) lines.push('Данные недоступны');
+    if (!short) lines.push(lang === 'ru' ? 'Данные недоступны' : 'Data unavailable');
   } else {
     if (ins.usageTypes.length > 0) {
-      const usages = ins.usageTypes.map(u => tr(USAGE_MAP, u)).join(', ');
-      lines.push(`История исп.:    ${usages}`);
+      const usages = ins.usageTypes.map(u => tr(USAGE_MAP, u, lang)).join(', ');
+      lines.push(`${s.reportUsageHistory.padEnd(17)}${usages}`);
     }
 
     if (ins.problematicItems.length === 0) {
-      if (!short) lines.push('Узлы:            ✅ Всё в норме');
+      if (!short) lines.push(s.reportNodesOk);
     } else {
-      lines.push(short ? 'Проблемные узлы:' : 'Проблемные узлы:');
+      lines.push(s.reportProblematicItems);
       for (const item of ins.problematicItems) {
-        const title = translateItemTitle(item.title);
-        const status = translateItemStatus(item.statusTitle ?? '');
+        const title = translateItemTitle(item.title, lang);
+        const status = translateItemStatus(item.statusTitle ?? '', lang);
         lines.push(`  ⚠️ ${title}: ${status}`);
       }
     }
 
     if (ins.outerDamages.length === 0) {
-      if (!short) lines.push('Кузов (панели):  ✅ Без повреждений');
+      if (!short) lines.push(s.reportBodyOk);
     } else {
-      if (!short) lines.push('Кузовные повреждения:');
+      if (!short) lines.push(s.reportBodyDamages);
       for (const d of ins.outerDamages) {
-        const statuses = d.statusTypes.map(s => translateDamage(s.title)).join(', ');
+        const statuses = d.statusTypes.map(st => translateDamage(st.title, lang)).join(', ');
         const icon = d.rankOne ? '🚨' : '⚠️';
-        lines.push(`  ${icon} ${translateBodyPart(d.title)}: ${statuses}`);
+        lines.push(`  ${icon} ${translateBodyPart(d.title, lang)}: ${statuses}`);
       }
     }
   }

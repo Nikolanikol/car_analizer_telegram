@@ -7,10 +7,12 @@ import { fetchKbchaData } from './scrapers/kbcha';
 import { formatKbchaReport } from './formatters/kbchaReport';
 import { fetchKkarData } from './scrapers/kkar';
 import { formatKkarReport } from './formatters/kkarReport';
+import { t, type Lang } from './i18n';
 import {
   getUser, getUnlimitedAccess, canMakeRequest,
   incrementRequest, activateUser, generateKey, getStats,
   getKeyInfo, getAdminUserInfo, revokeKey, addBalance, saveUserProfile,
+  getUserLanguage, setUserLanguage,
   FREE_REQUESTS,
   type ActivateResult,
 } from './storage';
@@ -38,109 +40,58 @@ const MAX_KEY_ATTEMPTS = 5;
 const KEY_BAN_DURATION_MS = 30 * 60 * 1000;
 const REQUEST_COOLDOWN_MS = 5 * 1000;
 
-const MAIN_KEYBOARD = Markup.inlineKeyboard([
-  [
-    Markup.button.callback('❓ Как пользоваться', 'help'),
-    Markup.button.callback('📋 Пример отчёта', 'example'),
-  ],
-  [
-    Markup.button.callback('🔑 Ввести ключ', 'enter_key'),
-    Markup.button.callback('📊 Мой статус', 'status'),
-  ],
-  [
-    Markup.button.url('💬 Связаться с нами', 'https://t.me/caparts'),
-  ],
-]);
+function mainKeyboard(lang: Lang) {
+  const s = t(lang);
+  return Markup.inlineKeyboard([
+    [
+      Markup.button.callback(s.btnHelp, 'help'),
+      Markup.button.callback(s.btnExample, 'example'),
+    ],
+    [
+      Markup.button.callback(s.btnEnterKey, 'enter_key'),
+      Markup.button.callback(s.btnStatus, 'status'),
+    ],
+    [
+      Markup.button.url(s.btnContact, 'https://t.me/caparts'),
+      Markup.button.callback(s.btnLanguage, 'toggle_language'),
+    ],
+  ]);
+}
 
-const WELCOME_TEXT =
-  `<b>Добро пожаловать в Car Analyzer!</b>\n\n` +
-  `Этот бот помогает проверить автомобиль перед покупкой на корейских площадках.\n\n` +
-  `<b>Что умеет бот:</b>\n` +
-  `• Отчёт по истории страхования и ДТП\n` +
-  `• Данные технического осмотра\n` +
-  `• Пробег, год выпуска, комплектация\n\n` +
-  `<b>Поддерживаемые площадки:</b>\n` +
-  `• encar.com\n` +
-  `• kbchachacha.com\n` +
-  `• kcar.com\n\n` +
-  `Просто отправь ссылку на автомобиль — бот сделает всё остальное.\n\n` +
-  `🌐 <b>Наша площадка:</b> <a href="https://www.kmotors.shop/">kmotors.shop</a>\n\n` +
-  `<i>Каждому пользователю доступно ${FREE_REQUESTS} бесплатных запросов. Пополнить баланс можно через ключ активации.</i>`;
-
-const HELP_TEXT =
-  `<b>❓ Как пользоваться</b>\n\n` +
-  `1. Зайди на одну из поддерживаемых площадок\n` +
-  `2. Открой страницу любого автомобиля\n` +
-  `3. Скопируй ссылку из адресной строки\n` +
-  `4. Отправь ссылку в этот чат\n\n` +
-  `<b>Примеры ссылок:</b>\n` +
-  `• <code>https://www.encar.com/dc/dc_cardetailview.do?carid=12345678</code>\n` +
-  `• <code>https://www.kbchachacha.com/public/car/detail.kbc?carSeq=12345678</code>\n` +
-  `• <code>https://www.kcar.com/bc/detail/carInfoDtl?i_sCarCd=ABC1234</code>\n\n` +
-  `<b>Баланс запросов:</b>\n` +
-  `Каждому пользователю доступно ${FREE_REQUESTS} бесплатных запросов. Пополнить баланс можно через ключ активации — пишите <a href="https://t.me/caparts">@caparts</a> или заходите на <a href="https://www.kmotors.shop/">kmotors.shop</a>`;
-
-const EXAMPLE_REPORT =
-  `<b>📋 Пример отчёта</b>\n` +
-  `<i>Так выглядит отчёт по автомобилю с нашего бота:</i>\n\n` +
-  `🚗 <b>Kia Ray</b>\n` +
-  `Дирекс Спесел\n` +
-  `<a href="https://www.encar.com/dc/dc_cardetailview.do?carid=40839556">encar.com/dc/dc_cardetailview.do?carid=40839556</a>\n\n` +
-  `📋 <b>Основные данные</b>\n` +
-  `Номер авто:  <b>66보9144</b>\n` +
-  `VIN:         <b>KNACH811BDT050022</b>\n` +
-  `Год выпуска: <b>2013</b>\n` +
-  `Пробег:      <b>93 801 км</b>\n` +
-  `Цена:        <b>5 390 000 ₩</b>\n` +
-  `КПП:         Автомат (오토)\n` +
-  `Топливо:     Бензин (가솔린)\n` +
-  `Двигатель:   1.0л\n` +
-  `Цвет:        Голубой (하늘색)\n` +
-  `Адрес:       충남 천안시 동남구\n\n` +
-  `🔍 <b>Страховая история</b>\n` +
-  `⚠️ Аварий (виновник): 2 — 5 140 820 ₩\n` +
-  `⚠️ Аварий (пострадавший): 1 — 360 598 ₩\n` +
-  `Первая рег.: 2013-01-18\n\n` +
-  `🔧 <b>Техническая инспекция</b>\n` +
-  `Узлы: ✅ Всё в норме\n` +
-  `Кузовные повреждения:\n` +
-  `🔴 Переднее крыло (пр.): Замена\n` +
-  `🔴 Капот: Замена\n` +
-  `🔴 Крышка багажника: Замена\n` +
-  `🔴 Переднее крыло (лев.): Замена\n` +
-  `⚠️ Порог панель (лев.): Рихтовка/сварка\n` +
-  `⚠️ Задняя панель: Замена`;
-
-const CONTACT_TEXT =
-  `<b>💬 Связаться с нами</b>\n\n` +
-  `Telegram: <a href="https://t.me/caparts">@caparts</a>\n` +
-  `Сайт: <a href="https://www.kmotors.shop/">kmotors.shop</a>\n\n` +
-  `<i>По вопросам ключей активации, сотрудничества и помощи — пишите нам.</i>`;
-
-function getStatusText(userId: number): string {
+function getStatusText(userId: number, lang: Lang): string {
+  const s = t(lang);
   const unlimited = getUnlimitedAccess(userId);
   if (unlimited.active) {
     const expiryLine = unlimited.expiresAt
-      ? `\n📅 Действителен до: <b>${new Date(unlimited.expiresAt).toLocaleDateString('ru-RU')}</b>`
+      ? s.statusExpiresAt(new Date(unlimited.expiresAt).toLocaleDateString(lang === 'ru' ? 'ru-RU' : 'en-GB'))
       : '';
-    return `✅ Безлимитный доступ активирован.${expiryLine}`;
+    return s.statusUnlimited(expiryLine);
   }
   const user = getUser(userId);
-  return `🔢 Остаток запросов: <b>${user.requestBalance}</b>`;
+  return s.statusBalance(user.requestBalance);
 }
 
 bot.start(async (ctx) => {
-  saveUserProfile(ctx.from.id, {
+  const userId = ctx.from.id;
+  saveUserProfile(userId, {
     firstName: ctx.from.first_name,
     lastName: ctx.from.last_name,
     username: ctx.from.username,
   });
-  const msg = await ctx.replyWithHTML(WELCOME_TEXT, MAIN_KEYBOARD);
+  const lang = getUserLanguage(userId);
+  const msg = await ctx.replyWithHTML(t(lang).welcome(FREE_REQUESTS), mainKeyboard(lang));
   await ctx.telegram.pinChatMessage(ctx.chat.id, msg.message_id).catch(() => {});
 });
 
-bot.command('help', (ctx) => ctx.replyWithHTML(HELP_TEXT));
-bot.command('status', (ctx) => ctx.replyWithHTML(getStatusText(ctx.from.id)));
+bot.command('help', (ctx) => {
+  const lang = getUserLanguage(ctx.from.id);
+  ctx.replyWithHTML(t(lang).help(FREE_REQUESTS));
+});
+
+bot.command('status', (ctx) => {
+  const lang = getUserLanguage(ctx.from.id);
+  ctx.replyWithHTML(getStatusText(ctx.from.id, lang));
+});
 
 bot.command('genkey', (ctx) => {
   if (ctx.from.id !== ADMIN_ID) return;
@@ -161,12 +112,13 @@ bot.command('genkey', (ctx) => {
   }
 
   const key = generateKey({ requestLimit, expiresAt });
-  const limitLine = requestLimit !== null ? `🔢 Лимит: <b>${requestLimit}</b> запросов` : `🔢 Лимит: <b>безлимит</b>`;
+  const s = t('ru');
+  const limitLine = requestLimit !== null ? s.adminKeyLimitN(requestLimit) : s.adminKeyLimitUnlimited;
   const expiryLine = expiresAt
-    ? `📅 Истекает: <b>${new Date(expiresAt).toLocaleDateString('ru-RU')}</b>`
-    : `📅 Срок: <b>бессрочный</b>`;
+    ? s.adminKeyExpiryDate(new Date(expiresAt).toLocaleDateString('ru-RU'))
+    : s.adminKeyExpiryNone;
 
-  ctx.replyWithHTML(`🔑 Новый ключ активации:\n\n<code>${key}</code>\n\n${limitLine}\n${expiryLine}`);
+  ctx.replyWithHTML(s.adminKeyCreated(key, limitLine, expiryLine));
 });
 
 bot.command('stats', (ctx) => {
@@ -176,11 +128,12 @@ bot.command('stats', (ctx) => {
 
 bot.command('keyinfo', (ctx) => {
   if (ctx.from.id !== ADMIN_ID) return;
+  const s = t('ru');
   const key = ctx.message.text.split(/\s+/)[1]?.toUpperCase();
-  if (!key) return ctx.reply('Использование: /keyinfo XXXX-XXXX-XXXX');
+  if (!key) return ctx.reply(s.adminUsageInvalid('/keyinfo XXXX-XXXX-XXXX'));
 
   const info = getKeyInfo(key);
-  if (!info) return ctx.reply('❌ Ключ не найден.');
+  if (!info) return ctx.reply(s.adminKeyNotFound);
 
   const now = new Date();
   const expired = info.expiresAt ? now > new Date(info.expiresAt) : false;
@@ -214,11 +167,12 @@ bot.command('keyinfo', (ctx) => {
 
 bot.command('userinfo', (ctx) => {
   if (ctx.from.id !== ADMIN_ID) return;
+  const s = t('ru');
   const userId = parseInt(ctx.message.text.split(/\s+/)[1] ?? '');
-  if (isNaN(userId)) return ctx.reply('Использование: /userinfo <telegram_id>');
+  if (isNaN(userId)) return ctx.reply(s.adminUsageInvalid('/userinfo <telegram_id>'));
 
   const info = getAdminUserInfo(userId);
-  if (!info) return ctx.reply('❌ Пользователь не найден.');
+  if (!info) return ctx.reply(s.adminUserNotFound);
 
   const unlimitedStr = info.unlimitedAccess.active
     ? `✅${info.unlimitedAccess.expiresAt ? ` до ${new Date(info.unlimitedAccess.expiresAt).toLocaleDateString('ru-RU')}` : ' (бессрочно)'}`
@@ -240,50 +194,67 @@ bot.command('userinfo', (ctx) => {
 
 bot.command('revoke', (ctx) => {
   if (ctx.from.id !== ADMIN_ID) return;
+  const s = t('ru');
   const key = ctx.message.text.split(/\s+/)[1]?.toUpperCase();
-  if (!key) return ctx.reply('Использование: /revoke XXXX-XXXX-XXXX');
+  if (!key) return ctx.reply(s.adminUsageInvalid('/revoke XXXX-XXXX-XXXX'));
 
   const success = revokeKey(key);
-  if (!success) return ctx.reply('❌ Ключ не найден.');
-  ctx.reply(`✅ Ключ <code>${key}</code> отозван.`, { parse_mode: 'HTML' });
+  if (!success) return ctx.reply(s.adminKeyNotFound);
+  ctx.reply(s.adminKeyRevoked(key), { parse_mode: 'HTML' });
 });
 
 bot.command('addbalance', (ctx) => {
   if (ctx.from.id !== ADMIN_ID) return;
+  const s = t('ru');
   const parts = ctx.message.text.split(/\s+/);
   const userId = parseInt(parts[1] ?? '');
   const amount = parseInt(parts[2] ?? '');
   if (isNaN(userId) || isNaN(amount) || amount <= 0) {
-    return ctx.reply('Использование: /addbalance <telegram_id> <количество>');
+    return ctx.reply(s.adminUsageInvalid('/addbalance <telegram_id> <количество>'));
   }
 
   const newBalance = addBalance(userId, amount);
-  ctx.replyWithHTML(`✅ Пользователю <code>${userId}</code> начислено <b>${amount}</b> запросов.\nНовый баланс: <b>${newBalance}</b>`);
+  ctx.replyWithHTML(s.adminBalanceAdded(userId, amount, newBalance));
 });
 
 bot.action('help', async (ctx) => {
   await ctx.answerCbQuery();
-  await ctx.replyWithHTML(HELP_TEXT);
+  const lang = getUserLanguage(ctx.from.id);
+  await ctx.replyWithHTML(t(lang).help(FREE_REQUESTS));
 });
 
 bot.action('example', async (ctx) => {
   await ctx.answerCbQuery();
-  await ctx.replyWithHTML(EXAMPLE_REPORT);
+  const lang = getUserLanguage(ctx.from.id);
+  await ctx.replyWithHTML(t(lang).exampleReport);
 });
 
 bot.action('status', async (ctx) => {
   await ctx.answerCbQuery();
-  await ctx.replyWithHTML(getStatusText(ctx.from.id));
+  const lang = getUserLanguage(ctx.from.id);
+  await ctx.replyWithHTML(getStatusText(ctx.from.id, lang));
+});
+
+bot.action('toggle_language', async (ctx) => {
+  await ctx.answerCbQuery();
+  const userId = ctx.from.id;
+  const current = getUserLanguage(userId);
+  const next: Lang = current === 'ru' ? 'en' : 'ru';
+  setUserLanguage(userId, next);
+  const s = t(next);
+  await ctx.replyWithHTML(s.languageChanged, mainKeyboard(next));
 });
 
 bot.action('enter_key', async (ctx) => {
   await ctx.answerCbQuery();
   const userId = ctx.from.id;
+  const lang = getUserLanguage(userId);
+  const s = t(lang);
 
   const bannedUntil = keyBannedUntil.get(userId);
   if (bannedUntil && Date.now() < bannedUntil) {
     const minutesLeft = Math.ceil((bannedUntil - Date.now()) / 60000);
-    return ctx.reply(`🚫 Ввод ключей заблокирован. Попробуй через <b>${minutesLeft} мин.</b>`, { parse_mode: 'HTML' });
+    return ctx.replyWithHTML(s.keyBanned(minutesLeft));
   }
 
   if (keyTimeouts.has(userId)) {
@@ -292,13 +263,13 @@ bot.action('enter_key', async (ctx) => {
   }
 
   waitingForKey.add(userId);
-  await ctx.reply('Отправь свой ключ активации (формат: XXXX-XXXX-XXXX):\n⏱ У тебя есть 5 минут.');
+  await ctx.reply(s.keyPrompt);
 
   const timer = setTimeout(async () => {
     if (waitingForKey.has(userId)) {
       waitingForKey.delete(userId);
       keyTimeouts.delete(userId);
-      await ctx.reply('⌛ Время ввода ключа истекло. Нажми кнопку снова если хочешь попробовать.');
+      await ctx.reply(s.keyTimeout);
     }
   }, KEY_TIMEOUT_MS);
 
@@ -308,6 +279,8 @@ bot.action('enter_key', async (ctx) => {
 bot.on('text', async (ctx) => {
   const userId = ctx.from.id;
   const text = ctx.message.text.trim();
+  const lang = getUserLanguage(userId);
+  const s = t(lang);
 
   if (waitingForKey.has(userId)) {
     waitingForKey.delete(userId);
@@ -315,7 +288,7 @@ bot.on('text', async (ctx) => {
     keyTimeouts.delete(userId);
 
     if (!KEY_PATTERN.test(text.toUpperCase())) {
-      return ctx.reply('❌ Неверный формат ключа. Ожидается: XXXX-XXXX-XXXX');
+      return ctx.reply(s.keyInvalidFormat);
     }
 
     const result: ActivateResult = activateUser(userId, text.toUpperCase());
@@ -324,18 +297,15 @@ bot.on('text', async (ctx) => {
       keyAttempts.delete(userId);
       keyBannedUntil.delete(userId);
       if (result.credited !== null) {
-        return ctx.replyWithHTML(
-          `✅ Ключ принят! Начислено <b>${result.credited}</b> запросов.\n🔢 Баланс: <b>${result.newBalance}</b>`
-        );
+        return ctx.replyWithHTML(s.keyAcceptedCredits(result.credited, result.newBalance!));
       } else {
         const expiryLine = result.expiresAt
-          ? `\n📅 Действителен до: <b>${new Date(result.expiresAt).toLocaleDateString('ru-RU')}</b>`
+          ? s.keyExpiredUnlimitedLine(new Date(result.expiresAt).toLocaleDateString(lang === 'ru' ? 'ru-RU' : 'en-GB'))
           : '';
-        return ctx.replyWithHTML(`✅ Безлимитный доступ активирован!${expiryLine}`);
+        return ctx.replyWithHTML(s.keyAcceptedUnlimited(expiryLine));
       }
     }
 
-    // Считаем неудачную попытку только для подозрительных случаев
     if (result.status === 'not_found' || result.status === 'already_bound') {
       const attempts = (keyAttempts.get(userId) ?? 0) + 1;
       keyAttempts.set(userId, attempts);
@@ -343,23 +313,24 @@ bot.on('text', async (ctx) => {
       if (remaining <= 0) {
         keyAttempts.delete(userId);
         keyBannedUntil.set(userId, Date.now() + KEY_BAN_DURATION_MS);
-        return ctx.reply('🚫 Превышен лимит попыток. Ввод ключей заблокирован на 30 минут.');
+        return ctx.reply(s.keyBannedTooManyAttempts);
       }
-      const suffix = result.status === 'already_bound'
-        ? 'Ключ уже используется другим пользователем.'
-        : 'Ключ не найден.';
-      return ctx.reply(`❌ ${suffix} Осталось попыток: <b>${remaining}</b>`, { parse_mode: 'HTML' });
+      return ctx.replyWithHTML(
+        result.status === 'already_bound'
+          ? s.keyAlreadyBound(remaining)
+          : s.keyNotFound(remaining)
+      );
     }
 
-    if (result.status === 'expired') return ctx.reply('❌ Срок действия ключа истёк.');
-    if (result.status === 'already_activated') return ctx.reply('ℹ️ Этот ключ уже активирован тобой.');
-    return ctx.reply('❌ Ключ не найден.');
+    if (result.status === 'expired') return ctx.reply(s.keyExpired);
+    if (result.status === 'already_activated') return ctx.reply(s.keyAlreadyActivated);
+    return ctx.reply(s.keyNotFound(MAX_KEY_ATTEMPTS));
   }
 
   if (!canMakeRequest(userId)) {
     return ctx.replyWithHTML(
-      `Баланс запросов исчерпан.\n\nПополни баланс через ключ активации. По вопросам пиши <a href="https://t.me/caparts">@caparts</a>`,
-      Markup.inlineKeyboard([Markup.button.callback('🔑 Ввести ключ', 'enter_key')])
+      s.balanceExhausted,
+      Markup.inlineKeyboard([Markup.button.callback(s.btnEnterKey, 'enter_key')])
     );
   }
 
@@ -371,21 +342,21 @@ bot.on('text', async (ctx) => {
   }
 
   if (processingUsers.has(userId)) {
-    return ctx.reply('⏳ Подожди, ещё обрабатываю предыдущий запрос.');
+    return ctx.reply(s.processing);
   }
 
   const last = lastRequestTime.get(userId);
   if (last) {
     const secondsLeft = Math.ceil((REQUEST_COOLDOWN_MS - (Date.now() - last)) / 1000);
     if (secondsLeft > 0) {
-      return ctx.reply(`⏱ Подожди ещё <b>${secondsLeft} сек.</b> перед следующим запросом.`, { parse_mode: 'HTML' });
+      return ctx.replyWithHTML(s.cooldown(secondsLeft));
     }
   }
 
   incrementRequest(userId);
   processingUsers.add(userId);
 
-  const loading = await ctx.reply('⏳ Загружаю данные...');
+  const loading = await ctx.reply(s.loading);
   const typingInterval = setInterval(() => {
     ctx.sendChatAction('typing').catch(() => {});
   }, 4000);
@@ -395,37 +366,37 @@ bot.on('text', async (ctx) => {
     if (parsed.source === 'encar') {
       const data = await fetchEncarData(parsed.id);
       await ctx.telegram.deleteMessage(ctx.chat.id, loading.message_id).catch(() => {});
-      await ctx.replyWithHTML(formatEncarReport(data, false));
-      await ctx.replyWithHTML(formatEncarReport(data, true));
+      await ctx.replyWithHTML(formatEncarReport(data, false, lang));
+      await ctx.replyWithHTML(formatEncarReport(data, true, lang));
     } else if (parsed.source === 'kbcha') {
       const data = await fetchKbchaData(parsed.id);
       await ctx.telegram.deleteMessage(ctx.chat.id, loading.message_id).catch(() => {});
       if (data.mainPhoto) await ctx.replyWithPhoto(data.mainPhoto);
-      await ctx.replyWithHTML(formatKbchaReport(data, parsed.id, false));
-      await ctx.replyWithHTML(formatKbchaReport(data, parsed.id, true));
+      await ctx.replyWithHTML(formatKbchaReport(data, parsed.id, false, lang));
+      await ctx.replyWithHTML(formatKbchaReport(data, parsed.id, true, lang));
     } else {
       const data = await fetchKkarData(parsed.id);
       await ctx.telegram.deleteMessage(ctx.chat.id, loading.message_id).catch(() => {});
       if (data.mainPhoto) await ctx.replyWithPhoto(data.mainPhoto);
-      await ctx.replyWithHTML(formatKkarReport(data, false));
-      await ctx.replyWithHTML(formatKkarReport(data, true));
+      await ctx.replyWithHTML(formatKkarReport(data, false, lang));
+      await ctx.replyWithHTML(formatKkarReport(data, true, lang));
     }
 
-    // Low balance warning (only for users without unlimited access)
     const unlimited = getUnlimitedAccess(userId);
     if (!unlimited.active) {
       const balance = getUser(userId).requestBalance;
       if (balance > 0 && balance <= LOW_BALANCE_THRESHOLD) {
+        const word = lang === 'en' ? '' : balance === 1 ? s.lowBalanceWord1 : s.lowBalanceWord2;
         await ctx.replyWithHTML(
-          `⚠️ Осталось <b>${balance}</b> ${balance === 1 ? 'запрос' : 'запроса'}. Пополни баланс через ключ активации.`,
-          Markup.inlineKeyboard([Markup.button.callback('🔑 Ввести ключ', 'enter_key')])
+          s.lowBalanceWarning(balance, word),
+          Markup.inlineKeyboard([Markup.button.callback(s.btnEnterKey, 'enter_key')])
         );
       }
     }
   } catch (e: any) {
     console.error(`[${new Date().toISOString()}] Ошибка для ID ${parsed.id}:`, e.message);
     await ctx.telegram.deleteMessage(ctx.chat.id, loading.message_id).catch(() => {});
-    await ctx.reply(`❌ Ошибка при получении данных: ${e.message}`);
+    await ctx.reply(s.errorData(e.message));
   } finally {
     clearInterval(typingInterval);
     processingUsers.delete(userId);
@@ -436,7 +407,8 @@ bot.on('text', async (ctx) => {
 bot.catch((err: unknown, ctx) => {
   const message = err instanceof Error ? err.message : String(err);
   console.error(`[${new Date().toISOString()}] [bot.catch] Необработанная ошибка для пользователя ${ctx.from?.id} (@${ctx.from?.username ?? '—'}): ${message}`);
-  ctx.reply('❌ Произошла неожиданная ошибка. Попробуй ещё раз или напиши нам: @caparts').catch(() => {});
+  const lang = ctx.from ? getUserLanguage(ctx.from.id) : 'ru';
+  ctx.reply(t(lang).unexpectedError).catch(() => {});
 });
 
 bot.launch();
