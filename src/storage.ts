@@ -366,6 +366,7 @@ export interface UserListEntry {
   lastActiveAt: string | null;
   joinedAt: string;
   hasUnlimited: boolean;
+  activatedKeys: string[];
 }
 
 export function listUsers(limit = 10): UserListEntry[] {
@@ -380,6 +381,7 @@ export function listUsers(limit = 10): UserListEntry[] {
       lastActiveAt: u.lastActiveAt ?? null,
       joinedAt: u.joinedAt,
       hasUnlimited: !!getUnlimitedKey(parseInt(uid)),
+      activatedKeys: u.activatedKeys,
     }))
     .sort((a, b) => {
       // Сортируем по lastActiveAt — сначала самые активные
@@ -410,6 +412,7 @@ export function findUser(query: string): UserListEntry | null {
     lastActiveAt: u.lastActiveAt ?? null,
     joinedAt: u.joinedAt,
     hasUnlimited: !!getUnlimitedKey(parseInt(uid)),
+    activatedKeys: u.activatedKeys,
   };
 }
 

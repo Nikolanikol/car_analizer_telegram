@@ -237,12 +237,21 @@ function timeAgo(iso: string | null): string {
 }
 
 function formatUserEntry(i: number, u: ReturnType<typeof listUsers>[number]): string {
-  const name = [u.firstName, u.lastName].filter(Boolean).join(' ');
+  const name  = [u.firstName, u.lastName].filter(Boolean).join(' ');
   const uname = u.username ? ` (@${u.username})` : '';
-  const access = u.hasUnlimited ? '♾ безлимит' : `🔢 ${u.requestBalance} зап.`;
+
+  let accessLine: string;
+  if (u.hasUnlimited) {
+    accessLine = '♾ Безлимит';
+  } else if (u.activatedKeys.length > 0) {
+    accessLine = `🔑 Пакет · баланс: ${u.requestBalance}`;
+  } else {
+    accessLine = `🆓 Бесплатный · осталось: ${u.requestBalance}`;
+  }
+
   return (
     `${i}. <b>${name}${uname}</b> · <code>${u.userId}</code>\n` +
-    `   ${access} · всего: ${u.totalRequests}\n` +
+    `   ${accessLine} · запросов: ${u.totalRequests}\n` +
     `   🕐 ${timeAgo(u.lastActiveAt)}`
   );
 }
