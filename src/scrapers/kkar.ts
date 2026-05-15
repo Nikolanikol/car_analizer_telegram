@@ -62,14 +62,24 @@ export async function fetchKkarData(carCd: string): Promise<KkarData> {
   const url = `${API_URL}?i_sCarCd=${carCd}&i_sPassYn=N&bltbdKnd=CM050`;
   log(C.cyan, 'kkar', `GET ${url}`);
 
-  const { data: body } = await axios.get(url, {
-    timeout: 10000,
-    headers: {
-      'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36',
-      'Accept': 'application/json',
-      'Referer': 'https://www.kcar.com/',
-    },
-  });
+  let body: any;
+  try {
+    const { data } = await axios.get(url, {
+      timeout: 10000,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36',
+        'Accept': 'application/json',
+        'Referer': 'https://www.kcar.com/',
+      },
+    });
+    body = data;
+  } catch (e: any) {
+    const status = e.response?.status;
+    if (status === 404) throw new Error('Объявление не найдено или удалено');
+    if (status === 403) throw new Error('Kcar заблокировал запрос. Попробуй позже');
+    if (e.code === 'ECONNABORTED') throw new Error('Kcar не отвечает. Попробуй позже');
+    throw new Error('Не удалось получить данные с Kcar. Попробуй позже');
+  }
 
   if (!body.success) {
     throw new Error(`kkar API вернул ошибку: ${body.message ?? body.returnCode}`);

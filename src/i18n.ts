@@ -100,6 +100,7 @@ interface Strings {
   lowBalanceWarning: (balance: number, word: string) => string;
   lowBalanceWord1: string;
   lowBalanceWord2: string;
+  lowBalanceWord5: string;
 
   languageChanged: string;
   languageSelect: string;
@@ -247,6 +248,7 @@ const RU: Strings = {
   lowBalanceWarning: (b, word) => `⚠️ Осталось <b>${b}</b> ${word}. Пополни баланс через ключ активации.`,
   lowBalanceWord1: 'запрос',
   lowBalanceWord2: 'запроса',
+  lowBalanceWord5: 'запросов',
 
   languageChanged: '✅ Язык изменён на русский.',
   languageSelect: '🌐 Выбери язык / Choose language:',
@@ -393,6 +395,7 @@ const EN: Strings = {
   lowBalanceWarning: (b, _word) => `⚠️ Only <b>${b}</b> ${b === 1 ? 'request' : 'requests'} left. Add more via an activation key.`,
   lowBalanceWord1: '',
   lowBalanceWord2: '',
+  lowBalanceWord5: '',
 
   languageChanged: '✅ Language changed to English.',
   languageSelect: '🌐 Выбери язык / Choose language:',

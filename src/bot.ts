@@ -28,6 +28,17 @@ if (!ADMIN_ID || isNaN(ADMIN_ID)) throw new Error('ADMIN_ID не задан ил
 
 const bot = new Telegraf(token);
 
+bot.use((ctx, next) => {
+  if (ctx.from) {
+    saveUserProfile(ctx.from.id, {
+      firstName: ctx.from.first_name,
+      lastName: ctx.from.last_name,
+      username: ctx.from.username,
+    });
+  }
+  return next();
+});
+
 const waitingForKey = new Set<number>();
 const keyTimeouts = new Map<number, ReturnType<typeof setTimeout>>();
 const keyAttempts = new Map<number, number>();
@@ -73,11 +84,6 @@ function getStatusText(userId: number, lang: Lang): string {
 
 bot.start(async (ctx) => {
   const userId = ctx.from.id;
-  saveUserProfile(userId, {
-    firstName: ctx.from.first_name,
-    lastName: ctx.from.last_name,
-    username: ctx.from.username,
-  });
   const lang = getUserLanguage(userId);
   const msg = await ctx.replyWithHTML(t(lang).welcome(FREE_REQUESTS), mainKeyboard(lang));
   await ctx.telegram.pinChatMessage(ctx.chat.id, msg.message_id).catch(() => {});
@@ -386,7 +392,7 @@ bot.on('text', async (ctx) => {
     if (!unlimited.active) {
       const balance = getUser(userId).requestBalance;
       if (balance > 0 && balance <= LOW_BALANCE_THRESHOLD) {
-        const word = lang === 'en' ? '' : balance === 1 ? s.lowBalanceWord1 : s.lowBalanceWord2;
+        const word = lang === 'en' ? '' : balance === 1 ? s.lowBalanceWord1 : balance < 5 ? s.lowBalanceWord2 : s.lowBalanceWord5;
         await ctx.replyWithHTML(
           s.lowBalanceWarning(balance, word),
           Markup.inlineKeyboard([Markup.button.callback(s.btnEnterKey, 'enter_key')])

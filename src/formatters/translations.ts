@@ -56,6 +56,12 @@ export const MODEL_MAP: Record<string, string> = {
   // Honda / Nissan
   '어코드': 'Accord', '시빅': 'Civic', 'CR-V': 'CR-V', 'HR-V': 'HR-V',
   '알티마': 'Altima', '맥시마': 'Maxima', '무라노': 'Murano', '로그': 'Rogue',
+  // Citroen / DS
+  '그랜드 C4 스페이스투어러': 'Grand C4 Spacetourer',
+  'C4 스페이스투어러': 'C4 Spacetourer',
+  'C3': 'C3', 'C4': 'C4', 'C5': 'C5',
+  // Common Korean word parts in model names
+  '그랜드': 'Grand', '스페이스투어러': 'Spacetourer',
 };
 
 export const MANUFACTURER_MAP: Record<string, string> = {
@@ -68,15 +74,21 @@ export const MANUFACTURER_MAP: Record<string, string> = {
   '볼보': 'Volvo', '랜드로버': 'Land Rover', '재규어': 'Jaguar',
   '토요타': 'Toyota', '렉서스': 'Lexus', '혼다': 'Honda',
   '닛산': 'Nissan', '인피니티': 'Infiniti', '미쓰비시': 'Mitsubishi',
+  '시트로엥': 'Citroen', 'DS': 'DS', '푸조': 'Peugeot',
+  '피아트': 'Fiat', '알파로메오': 'Alfa Romeo', '마세라티': 'Maserati',
+  '페라리': 'Ferrari', '람보르기니': 'Lamborghini',
+  '폴스타': 'Polestar', '테슬라': 'Tesla',
+  '지프': 'Jeep', '크라이슬러': 'Chrysler', '포드': 'Ford',
+  '링컨': 'Lincoln',
 };
 
 // Корейские префиксы/суффиксы в названиях моделей
 const KOREAN_MODIFIERS: [RegExp, string][] = [
-  [/올\s*뉴\s*/gi, ''],      // 올뉴 = All New → убираем
-  [/더\s*뉴\s*/gi, ''],      // 더뉴 = The New → убираем
-  [/뉴\s*/gi, ''],            // 뉴 = New → убираем
-  [/더\s*넥스트\s*/gi, ''],
-  [/\s*\d+세대/gi, ''],      // 2세대, 3세대 = поколение → убираем
+  [/올\s*뉴\s*/gi, 'All New '],     // 올뉴 = All New
+  [/더\s*뉴\s*/gi, 'The New '],     // 더뉴 = The New
+  [/더\s*넥스트\s*/gi, 'Next '],
+  [/뉴\s*/gi, 'New '],              // 뉴 = New
+  [/\s*\d+세대/gi, ''],             // 2세대, 3세대 = поколение → убираем
 ];
 
 /** Переводит/очищает название авто от корейских модификаторов и марок */

@@ -10,9 +10,9 @@ function phone(num: string): string {
   return num ? esc(num) : '—';
 }
 
-function price(val: number): string {
+function price(val: number, lang: Lang): string {
   const krw = val * 10000;
-  const formatted = krw.toLocaleString('ru-RU');
+  const formatted = krw.toLocaleString(lang === 'ru' ? 'ru-RU' : 'en-US');
   return `<b>${formatted} ₩</b>`;
 }
 
@@ -253,15 +253,30 @@ function translateItemStatus(korean: string, lang: Lang): string {
   return ITEM_STATUS_MAP[korean]?.[lang] ?? esc(korean);
 }
 
+const GRADE_WORD_MAP: [RegExp, string][] = [
+  // Fuel (порядок важен — составные раньше одиночных)
+  [/가솔린\+전기/g, 'Hybrid'], [/디젤\+전기/g, 'Hybrid'],
+  [/가솔린/g, 'Gasoline'], [/디젤/g, 'Diesel'],
+  [/전기/g, 'Electric'], [/하이브리드/g, 'Hybrid'],
+  // Generation / prefix
+  [/올\s*뉴/gi, 'All New'], [/더\s*뉴/gi, 'The New'], [/뉴/gi, 'New'],
+  // Trim levels
+  [/터보/g, 'Turbo'], [/모던/g, 'Modern'], [/샤인팩/g, 'Shine Pack'],
+  [/샤인/g, 'Shine'], [/프레스티지/g, 'Prestige'], [/프리미엄/g, 'Premium'],
+  [/익스클루시브/g, 'Exclusive'], [/노블레스/g, 'Noblesse'],
+  [/시그니처/g, 'Signature'], [/인스퍼레이션/g, 'Inspiration'],
+  [/럭셔리/g, 'Luxury'], [/익스프레션/g, 'Expression'],
+  [/스포츠/g, 'Sports'], [/스마트/g, 'Smart'], [/트렌디/g, 'Trendy'],
+  [/어드밴스드/g, 'Advanced'], [/컴포트/g, 'Comfort'],
+  [/마스터/g, 'Master'], [/엘리트/g, 'Elite'],
+];
+
 function translateGrade(grade: string): string {
-  return grade
-    .replace(/가솔린\+전기/g, 'Hybrid')
-    .replace(/디젤\+전기/g, 'Hybrid')
-    .replace(/가솔린/g, 'Gasoline')
-    .replace(/디젤/g, 'Diesel')
-    .replace(/전기/g, 'Electric')
-    .replace(/하이브리드/g, 'Hybrid')
-    .replace(/LPG/g, 'LPG');
+  let result = grade;
+  for (const [pattern, replacement] of GRADE_WORD_MAP) {
+    result = result.replace(pattern, replacement);
+  }
+  return result;
 }
 
 // ─── Main formatter ────────────────────────────────────────────────────────────
@@ -271,9 +286,10 @@ export function formatEncarReport(data: EncarData, short = false, lang: Lang = '
   const s = t(lang);
   const lines: string[] = [];
 
+  const locale = lang === 'ru' ? 'ru-RU' : 'en-US';
   const mileageFmt = lang === 'ru'
-    ? `${v.spec.mileage.toLocaleString()} км`
-    : `${v.spec.mileage.toLocaleString()} km`;
+    ? `${v.spec.mileage.toLocaleString(locale)} км`
+    : `${v.spec.mileage.toLocaleString(locale)} km`;
 
   if (short) {
     const manufacturer = esc(v.category.manufacturerEnglishName || v.category.manufacturerName);
@@ -297,7 +313,7 @@ export function formatEncarReport(data: EncarData, short = false, lang: Lang = '
       `${s.reportVin.padEnd(14)}<b>${v.vin ? esc(v.vin) : '—'}</b>`,
       `${s.reportYear.padEnd(14)}<b>${esc(v.category.formYear)}</b>`,
       `${s.reportMileage.padEnd(14)}<b>${mileageFmt}</b>`,
-      `${s.reportPrice.padEnd(14)}${price(v.advertisement.price)}`,
+      `${s.reportPrice.padEnd(14)}${price(v.advertisement.price, lang)}`,
       `${s.reportTransmission.padEnd(14)}${tr(TRANSMISSION_MAP, v.spec.transmissionName, lang)}`,
       `${s.reportFuel.padEnd(14)}${tr(FUEL_MAP, v.spec.fuelName, lang)}`,
       `${s.reportEngine.padEnd(14)}${(v.spec.displacement / 1000).toFixed(1)}L`,
@@ -316,9 +332,9 @@ export function formatEncarReport(data: EncarData, short = false, lang: Lang = '
         lines.push(s.reportCleanHistory);
       } else {
         if (r.myAccidentCnt > 0)
-          lines.push(s.reportAccidentFault(r.myAccidentCnt, r.myAccidentCost.toLocaleString()));
+          lines.push(s.reportAccidentFault(r.myAccidentCnt, r.myAccidentCost.toLocaleString(locale)));
         if (r.otherAccidentCnt > 0)
-          lines.push(s.reportAccidentVictim(r.otherAccidentCnt, r.otherAccidentCost.toLocaleString()));
+          lines.push(s.reportAccidentVictim(r.otherAccidentCnt, r.otherAccidentCost.toLocaleString(locale)));
         if (r.totalLossCnt > 0)
           lines.push(s.reportTotalLoss(r.totalLossCnt));
         if (r.floodTotalLossCnt > 0)

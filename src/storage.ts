@@ -19,6 +19,7 @@ interface UserData {
 export interface KeyData {
   used: boolean;
   usedBy: number | null;
+  revokedFrom: number[];        // users who had this key revoked — cannot reactivate
   requestLimit: number | null;  // null = unlimited access; number = requests to credit
   expiresAt: string | null;     // unlimited: access expires; limited: activation deadline
   createdAt: string;
@@ -37,6 +38,7 @@ function migrateDB(raw: any): DB {
     db.keys[k] = {
       used: old.used ?? false,
       usedBy: old.usedBy ?? null,
+      revokedFrom: old.revokedFrom ?? [],
       requestLimit: old.requestLimit ?? null,
       expiresAt: old.expiresAt ?? null,
       createdAt: old.createdAt ?? new Date().toISOString(),
@@ -200,6 +202,11 @@ export function activateUser(userId: number, key: string): ActivateResult {
     return { status: 'already_bound' };
   }
 
+  // Key was revoked from this user — cannot reactivate
+  if (keyData.revokedFrom.includes(userId)) {
+    return { status: 'already_activated' };
+  }
+
   // Check activation deadline for request-limited keys
   if (keyData.requestLimit !== null && keyData.expiresAt && new Date() > new Date(keyData.expiresAt)) {
     return { status: 'expired' };
@@ -239,6 +246,7 @@ export function generateKey(options: GenerateKeyOptions = {}): string {
   db.keys[key] = {
     used: false,
     usedBy: null,
+    revokedFrom: [],
     requestLimit: options.requestLimit ?? null,
     expiresAt: options.expiresAt ?? null,
     createdAt: new Date().toISOString(),
@@ -289,9 +297,14 @@ export function revokeKey(key: string): boolean {
   keyData.used = false;
   keyData.usedBy = null;
 
-  if (prevUsedBy !== null && db.users[String(prevUsedBy)]) {
-    db.users[String(prevUsedBy)].activatedKeys =
-      db.users[String(prevUsedBy)].activatedKeys.filter(k => k !== upperKey);
+  if (prevUsedBy !== null) {
+    if (!keyData.revokedFrom.includes(prevUsedBy)) {
+      keyData.revokedFrom.push(prevUsedBy);
+    }
+    if (db.users[String(prevUsedBy)]) {
+      db.users[String(prevUsedBy)].activatedKeys =
+        db.users[String(prevUsedBy)].activatedKeys.filter(k => k !== upperKey);
+    }
   }
 
   saveDB(db);

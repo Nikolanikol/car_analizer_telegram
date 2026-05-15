@@ -56,17 +56,27 @@ export async function fetchKbchaData(carSeq: string): Promise<KbchaData> {
   const url = `${BASE_URL}/public/car/detail.kbc?carSeq=${carSeq}`;
   log(C.cyan, 'kbcha', `GET ${url}`);
 
-  const { data: html } = await axios.get(url, {
-    timeout: 10000,
-    headers: {
-      'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36',
-      'Accept-Language': 'ko-KR,ko;q=0.9',
-      'Referer': BASE_URL,
-    },
-  });
+  let html: string;
+  try {
+    const { data } = await axios.get(url, {
+      timeout: 10000,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36',
+        'Accept-Language': 'ko-KR,ko;q=0.9',
+        'Referer': BASE_URL,
+      },
+    });
+    html = data;
+  } catch (e: any) {
+    const status = e.response?.status;
+    if (status === 404) throw new Error('Объявление не найдено или удалено');
+    if (status === 403) throw new Error('KBcha заблокировал запрос. Попробуй позже');
+    if (e.code === 'ECONNABORTED') throw new Error('KBcha не отвечает. Попробуй позже');
+    throw new Error('Не удалось получить данные с KBcha. Попробуй позже');
+  }
 
   log(C.green, 'kbcha', `HTML получен, парсим...`);
-  const $ = cheerio.load(html);
+  const $ = cheerio.load(html as string);
 
   // ── Заголовок и номер авто ─────────────────────────────────────────────────
   const titleRaw = $('strong.car-buy-name').first().text().replace(/\s+/g, ' ').trim();
