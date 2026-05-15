@@ -10,6 +10,11 @@ export const MODEL_MAP: Record<string, string> = {
   '코나': 'Kona', '넥쏘': 'Nexo', '아이오닉': 'Ioniq',
   '아이오닉5': 'Ioniq 5', '아이오닉6': 'Ioniq 6',
   '스타렉스': 'Starex', '포터': 'Porter', '베뉴': 'Venue',
+  '엑센트': 'Accent', '클릭': 'Click', '아토스': 'Atos',
+  '갤로퍼': 'Galloper', '테라칸': 'Terracan', '투스카니': 'Tuscani',
+  // Kia (older models)
+  '프라이드': 'Pride', '리오': 'Rio', '쎄라토': 'Cerato',
+  '포르테': 'Forte', '오피러스': 'Opirus', '카렌스': 'Carens',
   // Genesis
   'G70': 'G70', 'G80': 'G80', 'G90': 'G90',
   'GV70': 'GV70', 'GV80': 'GV80', 'GV90': 'GV90',
@@ -75,6 +80,9 @@ export const MODEL_MAP: Record<string, string> = {
   '그랜드 C4 스페이스투어러': 'Grand C4 Spacetourer',
   'C4 스페이스투어러': 'C4 Spacetourer',
   'C3': 'C3', 'C4': 'C4', 'C5': 'C5',
+  // MINI
+  '쿠퍼': 'Cooper', '클럽맨': 'Clubman', '컨트리맨': 'Countryman',
+  '페이스맨': 'Paceman', '로드스터': 'Roadster',
   // Common Korean word parts in model names
   '그랜드': 'Grand', '스페이스투어러': 'Spacetourer',
 };
@@ -95,6 +103,7 @@ export const MANUFACTURER_MAP: Record<string, string> = {
   '폴스타': 'Polestar', '테슬라': 'Tesla',
   '지프': 'Jeep', '크라이슬러': 'Chrysler', '포드': 'Ford',
   '링컨': 'Lincoln',
+  '미니': 'MINI',
 };
 
 // Нормализация английских названий производителей из Encar API
@@ -156,6 +165,7 @@ const GRADE_TOKEN_MAP: Record<string, string> = {
   '엘리트': 'Elite', '인스퍼레이션': 'Inspiration', '익스프레션': 'Expression',
   '샤인': 'Shine', '모던플러스': 'Modern Plus',
   // Entry / basic levels
+  '프리미어': 'Premier', '기본형': 'Base', '기본': 'Base',
   '엔트리': 'Entry', '베이직': 'Basic', '스탠다드': 'Standard',
   '스페셜': 'Special', '플래티넘': 'Platinum', '다이아몬드': 'Diamond',
   // Suffix tokens
@@ -175,6 +185,9 @@ const GRADE_TOKEN_MAP: Record<string, string> = {
   // Hyundai specific
   '어드벤처': 'Adventure',   // Tucson trim
   '내추럴': 'Natural',
+  // Body type (в грейдах у Kia/Hyundai)
+  '세단': 'Sedan', '해치백': 'Hatchback', '왜건': 'Wagon',
+  '5도어': '5-Door', '3도어': '3-Door',
   // Misc
   '롱': 'Long', '숏': 'Short', '컴팩트': 'Compact',
   '세이프티': 'Safety', '테크': 'Tech',
@@ -206,11 +219,19 @@ export function translateGradeText(grade: string): string {
 
 // Корейские префиксы/суффиксы в названиях моделей
 const KOREAN_MODIFIERS: [RegExp, string][] = [
-  [/올\s*뉴\s*/gi, 'All New '],     // 올뉴 = All New
-  [/더\s*뉴\s*/gi, 'The New '],     // 더뉴 = The New
+  // Убираем скобки с пометками поколения/фейслифта до любых других замен
+  // Примеры: (신형), (3세대), (2세대 F/L), (3세대 F/L)
+  [/\([^)]*(?:세대|신형|F\/L)[^)]*\)/gi, ''],
+  // Generation prefixes
+  [/올\s*뉴\s*/gi, 'All New '],
+  [/더\s*뉴\s*/gi, 'The New '],
   [/더\s*넥스트\s*/gi, 'Next '],
-  [/뉴\s*/gi, 'New '],              // 뉴 = New
-  [/\s*\d+세대/gi, ''],             // 2세대, 3세대 = поколение → убираем
+  [/뉴\s*/gi, 'New '],
+  [/\s*\d+세대/gi, ''],             // на случай если осталось без скобок
+  // Body types в названии модели
+  [/5도어/g, '5-Door'], [/3도어/g, '3-Door'],
+  [/해치백/g, 'Hatchback'], [/세단/g, 'Sedan'], [/왜건/g, 'Wagon'],
+  [/컨버터블/g, 'Convertible'], [/쿠페/g, 'Coupe'],
 ];
 
 /** Переводит/очищает название авто от корейских модификаторов и марок */
