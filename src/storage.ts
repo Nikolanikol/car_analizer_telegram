@@ -16,6 +16,7 @@ interface UserData {
   language: 'ru' | 'en';
   lastActiveAt: string | null;
   totalRequests: number;
+  referral: string | null;
 }
 
 export interface KeyData {
@@ -62,6 +63,7 @@ function migrateDB(raw: any): DB {
         language: old.language ?? 'ru',
         lastActiveAt: old.lastActiveAt ?? null,
         totalRequests: old.totalRequests ?? 0,
+        referral: old.referral ?? null,
       };
       continue;
     }
@@ -85,7 +87,7 @@ function migrateDB(raw: any): DB {
       requestBalance = Math.max(0, FREE_REQUESTS - (old.requestCount ?? 0));
     }
 
-    db.users[uid] = { requestBalance, activatedKeys, firstName: '—', lastName: null, username: null, joinedAt: new Date().toISOString(), language: 'ru', lastActiveAt: null, totalRequests: 0 };
+    db.users[uid] = { requestBalance, activatedKeys, firstName: '—', lastName: null, username: null, joinedAt: new Date().toISOString(), language: 'ru', lastActiveAt: null, totalRequests: 0, referral: null };
   }
 
   return db;
@@ -144,7 +146,7 @@ console.log(`[storage] База данных загружена: ${Object.keys(d
 createBackup();
 setInterval(createBackup, BACKUP_INTERVAL_MS);
 
-function ensureUser(userId: number): UserData {
+function ensureUser(userId: number, referral?: string): UserData {
   if (!db.users[String(userId)]) {
     db.users[String(userId)] = {
       requestBalance: FREE_REQUESTS,
@@ -156,6 +158,7 @@ function ensureUser(userId: number): UserData {
       language: 'ru',
       lastActiveAt: null,
       totalRequests: 0,
+      referral: referral ?? null,
     };
   }
   return db.users[String(userId)];
@@ -177,12 +180,25 @@ export function setUserLanguage(userId: number, lang: 'ru' | 'en'): void {
   saveDB(db);
 }
 
-export function saveUserProfile(userId: number, profile: UserProfile): void {
-  const user = ensureUser(userId);
+export function saveUserProfile(userId: number, profile: UserProfile, referral?: string): void {
+  const user = ensureUser(userId, referral);
   user.firstName = profile.firstName;
   user.lastName = profile.lastName ?? null;
   user.username = profile.username ?? null;
+  // Сохраняем источник только при первом визите
+  if (referral && !user.referral) user.referral = referral;
   saveDB(db);
+}
+
+export function getReferralStats(): Record<string, number> {
+  const stats: Record<string, number> = {};
+  for (const u of Object.values(db.users)) {
+    const src = u.referral ?? '(прямой)';
+    stats[src] = (stats[src] ?? 0) + 1;
+  }
+  return Object.fromEntries(
+    Object.entries(stats).sort((a, b) => b[1] - a[1])
+  );
 }
 
 // Returns the active unlimited key for this user, if any
@@ -367,6 +383,7 @@ export interface UserListEntry {
   joinedAt: string;
   hasUnlimited: boolean;
   activatedKeys: string[];
+  referral: string | null;
 }
 
 export function listUsers(limit = 10): UserListEntry[] {
@@ -382,6 +399,7 @@ export function listUsers(limit = 10): UserListEntry[] {
       joinedAt: u.joinedAt,
       hasUnlimited: !!getUnlimitedKey(parseInt(uid)),
       activatedKeys: u.activatedKeys,
+      referral: u.referral ?? null,
     }))
     .sort((a, b) => {
       // Сортируем по lastActiveAt — сначала самые активные
@@ -413,6 +431,7 @@ export function findUser(query: string): UserListEntry | null {
     joinedAt: u.joinedAt,
     hasUnlimited: !!getUnlimitedKey(parseInt(uid)),
     activatedKeys: u.activatedKeys,
+    referral: u.referral ?? null,
   };
 }
 

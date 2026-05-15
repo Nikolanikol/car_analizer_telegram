@@ -12,7 +12,7 @@ import {
   getUser, getUnlimitedAccess, canMakeRequest,
   incrementRequest, activateUser, generateKey, getStats,
   getKeyInfo, getAdminUserInfo, revokeKey, addBalance, saveUserProfile,
-  listUsers, findUser,
+  listUsers, findUser, getReferralStats,
   getUserLanguage, setUserLanguage,
   FREE_REQUESTS,
   type ActivateResult,
@@ -85,6 +85,12 @@ function getStatusText(userId: number, lang: Lang): string {
 
 bot.start(async (ctx) => {
   const userId = ctx.from.id;
+  const referral = ctx.startPayload || null; // ?start=SOURCE
+  saveUserProfile(userId, {
+    firstName: ctx.from.first_name,
+    lastName: ctx.from.last_name,
+    username: ctx.from.username,
+  }, referral ?? undefined);
   const lang = getUserLanguage(userId);
   const msg = await ctx.replyWithHTML(t(lang).welcome(FREE_REQUESTS), mainKeyboard(lang));
   await ctx.telegram.pinChatMessage(ctx.chat.id, msg.message_id).catch(() => {});
@@ -249,23 +255,48 @@ function formatUserEntry(i: number, u: ReturnType<typeof listUsers>[number]): st
     accessLine = `🆓 Бесплатный · осталось: ${u.requestBalance}`;
   }
 
+  const ref = u.referral ? ` · 📎 ${u.referral}` : '';
   return (
     `${i}. <b>${name}${uname}</b> · <code>${u.userId}</code>\n` +
-    `   ${accessLine} · запросов: ${u.totalRequests}\n` +
+    `   ${accessLine} · запросов: ${u.totalRequests}${ref}\n` +
     `   🕐 ${timeAgo(u.lastActiveAt)}`
   );
 }
 
-bot.command('listusers', (ctx) => {
+bot.command('sources', (ctx) => {
   if (ctx.from.id !== ADMIN_ID) return;
-  const limit = parseInt(ctx.message.text.split(/\s+/)[1] ?? '10');
-  const users = listUsers(isNaN(limit) ? 10 : Math.min(limit, 50));
+  const stats = getReferralStats();
+  const total = Object.values(stats).reduce((s, n) => s + n, 0);
+  const lines = Object.entries(stats)
+    .map(([src, cnt]) => `${src}: <b>${cnt}</b> (${Math.round(cnt / total * 100)}%)`);
+  ctx.replyWithHTML(`📎 <b>Источники трафика</b>\n\n` + lines.join('\n'));
+});
+
+bot.command('listusers', async (ctx) => {
+  if (ctx.from.id !== ADMIN_ID) return;
+  const arg = parseInt(ctx.message.text.split(/\s+/)[1] ?? '0');
+  const limit = isNaN(arg) || arg <= 0 ? 500 : arg;
+  const users = listUsers(limit);
   if (!users.length) return ctx.reply('Пользователей пока нет.');
 
   const lines = users.map((u, i) => formatUserEntry(i + 1, u));
-  ctx.replyWithHTML(
-    `👥 <b>Пользователи (${users.length})</b>\n\n` + lines.join('\n\n')
-  );
+  const header = `👥 <b>Пользователи (${users.length})</b>\n\n`;
+
+  // Разбиваем на чанки по ~3500 символов чтобы не превысить лимит Telegram
+  const chunks: string[] = [];
+  let current = header;
+  for (const line of lines) {
+    if ((current + line).length > 3500) {
+      chunks.push(current);
+      current = '';
+    }
+    current += (current ? '\n\n' : '') + line;
+  }
+  if (current) chunks.push(current);
+
+  for (const chunk of chunks) {
+    await ctx.replyWithHTML(chunk);
+  }
 });
 
 bot.command('finduser', (ctx) => {
