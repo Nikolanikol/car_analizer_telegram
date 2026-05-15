@@ -1,5 +1,8 @@
 FROM node:20-alpine
 
+ARG COMMIT_SHA=unknown
+ENV COMMIT_SHA=$COMMIT_SHA
+
 WORKDIR /app
 
 COPY package*.json ./

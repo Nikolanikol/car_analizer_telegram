@@ -417,8 +417,26 @@ bot.catch((err: unknown, ctx) => {
   ctx.reply(t(lang).unexpectedError).catch(() => {});
 });
 
-bot.launch();
-console.log('Bot started');
+async function notify(text: string) {
+  try {
+    await bot.telegram.sendMessage(ADMIN_ID, text, { parse_mode: 'HTML' });
+  } catch (e: any) {
+    console.error('[notify] Не удалось отправить уведомление:', e.message);
+  }
+}
 
-process.once('SIGINT', () => bot.stop('SIGINT'));
-process.once('SIGTERM', () => bot.stop('SIGTERM'));
+bot.launch().then(async () => {
+  const commit = process.env.COMMIT_SHA?.slice(0, 7) ?? '—';
+  const time = new Date().toLocaleString('ru-RU', { timeZone: 'Asia/Seoul' });
+  console.log('Bot started');
+  await notify(`✅ <b>Бот запущен</b>\n📦 Commit: <code>${commit}</code>\n🕐 ${time} KST`);
+});
+
+process.once('SIGINT',  async () => {
+  await notify('⛔ <b>Бот остановлен</b> (SIGINT)');
+  bot.stop('SIGINT');
+});
+process.once('SIGTERM', async () => {
+  await notify('⛔ <b>Бот остановлен</b> (SIGTERM)');
+  bot.stop('SIGTERM');
+});
