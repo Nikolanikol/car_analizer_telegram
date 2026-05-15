@@ -8,6 +8,10 @@ primary_region = 'sin'
 
 [build]
 
+[restart]
+  policy = 'always'
+  max_retries = 5
+
 [[vm]]
   memory = '256mb'
   cpus = 1
