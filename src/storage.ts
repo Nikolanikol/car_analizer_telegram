@@ -14,6 +14,8 @@ interface UserData {
   username: string | null;
   joinedAt: string;
   language: 'ru' | 'en';
+  lastActiveAt: string | null;
+  totalRequests: number;
 }
 
 export interface KeyData {
@@ -58,6 +60,8 @@ function migrateDB(raw: any): DB {
         username: old.username ?? null,
         joinedAt: old.joinedAt ?? new Date().toISOString(),
         language: old.language ?? 'ru',
+        lastActiveAt: old.lastActiveAt ?? null,
+        totalRequests: old.totalRequests ?? 0,
       };
       continue;
     }
@@ -81,7 +85,7 @@ function migrateDB(raw: any): DB {
       requestBalance = Math.max(0, FREE_REQUESTS - (old.requestCount ?? 0));
     }
 
-    db.users[uid] = { requestBalance, activatedKeys, firstName: '—', lastName: null, username: null, joinedAt: new Date().toISOString(), language: 'ru' };
+    db.users[uid] = { requestBalance, activatedKeys, firstName: '—', lastName: null, username: null, joinedAt: new Date().toISOString(), language: 'ru', lastActiveAt: null, totalRequests: 0 };
   }
 
   return db;
@@ -150,6 +154,8 @@ function ensureUser(userId: number): UserData {
       username: null,
       joinedAt: new Date().toISOString(),
       language: 'ru',
+      lastActiveAt: null,
+      totalRequests: 0,
     };
   }
   return db.users[String(userId)];
@@ -212,6 +218,8 @@ export function incrementRequest(userId: number): void {
   if (!getUnlimitedKey(userId)) {
     user.requestBalance = Math.max(0, user.requestBalance - 1);
   }
+  user.lastActiveAt = new Date().toISOString();
+  user.totalRequests = (user.totalRequests ?? 0) + 1;
   saveDB(db);
 }
 
@@ -346,6 +354,63 @@ export function addBalance(userId: number, amount: number): number {
   user.requestBalance += amount;
   saveDB(db);
   return user.requestBalance;
+}
+
+export interface UserListEntry {
+  userId: number;
+  firstName: string;
+  lastName: string | null;
+  username: string | null;
+  requestBalance: number;
+  totalRequests: number;
+  lastActiveAt: string | null;
+  joinedAt: string;
+  hasUnlimited: boolean;
+}
+
+export function listUsers(limit = 10): UserListEntry[] {
+  return Object.entries(db.users)
+    .map(([uid, u]) => ({
+      userId: parseInt(uid),
+      firstName: u.firstName,
+      lastName: u.lastName,
+      username: u.username,
+      requestBalance: u.requestBalance,
+      totalRequests: u.totalRequests ?? 0,
+      lastActiveAt: u.lastActiveAt ?? null,
+      joinedAt: u.joinedAt,
+      hasUnlimited: !!getUnlimitedKey(parseInt(uid)),
+    }))
+    .sort((a, b) => {
+      // Сортируем по lastActiveAt — сначала самые активные
+      if (!a.lastActiveAt && !b.lastActiveAt) return 0;
+      if (!a.lastActiveAt) return 1;
+      if (!b.lastActiveAt) return -1;
+      return new Date(b.lastActiveAt).getTime() - new Date(a.lastActiveAt).getTime();
+    })
+    .slice(0, limit);
+}
+
+export function findUser(query: string): UserListEntry | null {
+  const cleanQuery = query.replace(/^@/, '').toLowerCase();
+  const entry = Object.entries(db.users).find(([uid, u]) => {
+    if (uid === cleanQuery) return true;
+    if (u.username?.toLowerCase() === cleanQuery) return true;
+    return false;
+  });
+  if (!entry) return null;
+  const [uid, u] = entry;
+  return {
+    userId: parseInt(uid),
+    firstName: u.firstName,
+    lastName: u.lastName,
+    username: u.username,
+    requestBalance: u.requestBalance,
+    totalRequests: u.totalRequests ?? 0,
+    lastActiveAt: u.lastActiveAt ?? null,
+    joinedAt: u.joinedAt,
+    hasUnlimited: !!getUnlimitedKey(parseInt(uid)),
+  };
 }
 
 export function getStats(): string {

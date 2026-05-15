@@ -12,6 +12,7 @@ import {
   getUser, getUnlimitedAccess, canMakeRequest,
   incrementRequest, activateUser, generateKey, getStats,
   getKeyInfo, getAdminUserInfo, revokeKey, addBalance, saveUserProfile,
+  listUsers, findUser,
   getUserLanguage, setUserLanguage,
   FREE_REQUESTS,
   type ActivateResult,
@@ -221,6 +222,52 @@ bot.command('addbalance', (ctx) => {
 
   const newBalance = addBalance(userId, amount);
   ctx.replyWithHTML(s.adminBalanceAdded(userId, amount, newBalance));
+});
+
+function timeAgo(iso: string | null): string {
+  if (!iso) return 'никогда';
+  const diff = Date.now() - new Date(iso).getTime();
+  const mins  = Math.floor(diff / 60000);
+  const hours = Math.floor(diff / 3600000);
+  const days  = Math.floor(diff / 86400000);
+  if (mins < 1)   return 'только что';
+  if (mins < 60)  return `${mins} мин. назад`;
+  if (hours < 24) return `${hours} ч. назад`;
+  return `${days} дн. назад`;
+}
+
+function formatUserEntry(i: number, u: ReturnType<typeof listUsers>[number]): string {
+  const name = [u.firstName, u.lastName].filter(Boolean).join(' ');
+  const uname = u.username ? ` (@${u.username})` : '';
+  const access = u.hasUnlimited ? '♾ безлимит' : `🔢 ${u.requestBalance} зап.`;
+  return (
+    `${i}. <b>${name}${uname}</b> · <code>${u.userId}</code>\n` +
+    `   ${access} · всего: ${u.totalRequests}\n` +
+    `   🕐 ${timeAgo(u.lastActiveAt)}`
+  );
+}
+
+bot.command('listusers', (ctx) => {
+  if (ctx.from.id !== ADMIN_ID) return;
+  const limit = parseInt(ctx.message.text.split(/\s+/)[1] ?? '10');
+  const users = listUsers(isNaN(limit) ? 10 : Math.min(limit, 50));
+  if (!users.length) return ctx.reply('Пользователей пока нет.');
+
+  const lines = users.map((u, i) => formatUserEntry(i + 1, u));
+  ctx.replyWithHTML(
+    `👥 <b>Пользователи (${users.length})</b>\n\n` + lines.join('\n\n')
+  );
+});
+
+bot.command('finduser', (ctx) => {
+  if (ctx.from.id !== ADMIN_ID) return;
+  const query = ctx.message.text.split(/\s+/)[1];
+  if (!query) return ctx.reply('Использование: /finduser @username или /finduser <id>');
+
+  const u = findUser(query);
+  if (!u) return ctx.reply('❌ Пользователь не найден.');
+
+  ctx.replyWithHTML(formatUserEntry(1, u).replace(/^1\./, '👤'));
 });
 
 bot.action('help', async (ctx) => {
