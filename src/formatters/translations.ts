@@ -172,8 +172,12 @@ const GRADE_TOKEN_MAP: Record<string, string> = {
   '스포츠백': 'Sportback',       // Audi
   '올로드': 'Allroad',           // Audi
   '스포츠': 'Sport',
+  // Hyundai specific
+  '어드벤처': 'Adventure',   // Tucson trim
+  '내추럴': 'Natural',
   // Misc
   '롱': 'Long', '숏': 'Short', '컴팩트': 'Compact',
+  '세이프티': 'Safety', '테크': 'Tech',
 };
 
 function escapeRegex(s: string): string {
@@ -230,5 +234,6 @@ export function translateModelName(raw: string): string {
     result = result.replace(new RegExp(ko, 'g'), en);
   }
 
-  return result.replace(/\s+/g, ' ').trim();
+  // Убираем пустые скобки ()  которые остаются когда код кузова не заполнен
+  return result.replace(/\(\s*\)/g, '').replace(/\s+/g, ' ').trim();
 }
