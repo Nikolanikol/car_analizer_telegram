@@ -21,15 +21,30 @@ export const MODEL_MAP: Record<string, string> = {
   // Chevrolet / GM Korea
   '트레일블레이저': 'Trailblazer', '트랙스': 'Trax',
   '말리부': 'Malibu', '스파크': 'Spark', '이쿼녹스': 'Equinox',
+  // Volkswagen
+  '티구안': 'Tiguan', '골프': 'Golf', '파사트': 'Passat',
+  '폴로': 'Polo', '아테온': 'Arteon', '투아렉': 'Touareg',
+  '티록': 'T-Roc', '티크로스': 'T-Cross', '샤란': 'Sharan',
   // BMW
   '5시리즈': '5 Series', '3시리즈': '3 Series', '7시리즈': '7 Series',
   '1시리즈': '1 Series', '2시리즈': '2 Series', '4시리즈': '4 Series',
   '6시리즈': '6 Series', '8시리즈': '8 Series',
   'X1': 'X1', 'X2': 'X2', 'X3': 'X3', 'X4': 'X4',
   'X5': 'X5', 'X6': 'X6', 'X7': 'X7',
-  // Mercedes
-  'C클래스': 'C-Class', 'E클래스': 'E-Class', 'S클래스': 'S-Class',
-  'A클래스': 'A-Class', 'B클래스': 'B-Class', 'G클래스': 'G-Class',
+  // Mercedes (с дефисом и без — оба варианта встречаются на Encar)
+  'C-클래스': 'C-Class', 'C클래스': 'C-Class',
+  'E-클래스': 'E-Class', 'E클래스': 'E-Class',
+  'S-클래스': 'S-Class', 'S클래스': 'S-Class',
+  'A-클래스': 'A-Class', 'A클래스': 'A-Class',
+  'B-클래스': 'B-Class', 'B클래스': 'B-Class',
+  'G-클래스': 'G-Class', 'G클래스': 'G-Class',
+  'CLA-클래스': 'CLA-Class', 'CLA클래스': 'CLA-Class',
+  'CLS-클래스': 'CLS-Class', 'CLS클래스': 'CLS-Class',
+  'GLA-클래스': 'GLA-Class', 'GLA클래스': 'GLA-Class',
+  'GLB-클래스': 'GLB-Class', 'GLB클래스': 'GLB-Class',
+  'GLC-클래스': 'GLC-Class', 'GLC클래스': 'GLC-Class',
+  'GLE-클래스': 'GLE-Class', 'GLE클래스': 'GLE-Class',
+  'GLS-클래스': 'GLS-Class', 'GLS클래스': 'GLS-Class',
   // Audi
   'A3': 'A3', 'A4': 'A4', 'A5': 'A5', 'A6': 'A6', 'A7': 'A7', 'A8': 'A8',
   'Q3': 'Q3', 'Q5': 'Q5', 'Q7': 'Q7', 'Q8': 'Q8',
@@ -82,6 +97,21 @@ export const MANUFACTURER_MAP: Record<string, string> = {
   '링컨': 'Lincoln',
 };
 
+// Нормализация английских названий производителей из Encar API
+export const MANUFACTURER_EN_NORMALIZE: Record<string, string> = {
+  'ChevroletGMDaewoo': 'Chevrolet',
+  'GMDaewoo': 'Chevrolet',
+  'GM Daewoo': 'Chevrolet',
+  'KGMobility': 'KG Mobility',
+  'SsangYong': 'KG Mobility',
+  'Citroen-DS': 'Citroen',
+  'CitroenDS': 'Citroen',
+};
+
+export function normalizeManufacturer(name: string): string {
+  return MANUFACTURER_EN_NORMALIZE[name] ?? name;
+}
+
 // Корейские префиксы/суффиксы в названиях моделей
 const KOREAN_MODIFIERS: [RegExp, string][] = [
   [/올\s*뉴\s*/gi, 'All New '],     // 올뉴 = All New
@@ -105,8 +135,10 @@ export function translateModelName(raw: string): string {
     result = result.replace(pattern, replacement);
   }
 
-  // Заменяем корейские модели
-  for (const [ko, en] of Object.entries(MODEL_MAP)) {
+  // Заменяем корейские модели — сортируем по длине (длинные первыми),
+  // чтобы короткие ключи не совпадали внутри длинных слов (напр. 레이 в 트레일블레이저)
+  const sortedModelEntries = Object.entries(MODEL_MAP).sort((a, b) => b[0].length - a[0].length);
+  for (const [ko, en] of sortedModelEntries) {
     result = result.replace(new RegExp(ko, 'g'), en);
   }
 

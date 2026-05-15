@@ -100,6 +100,7 @@ const BASE = 'https://api.encar.com/v1/readside';
 export async function fetchVehicle(id: string): Promise<EncarVehicle> {
   try {
     const { data } = await axios.get(`${BASE}/vehicle/${id}`, { timeout: 10000 });
+
     return {
       vehicleId: data.vehicleId,
       vehicleNo: data.vehicleNo,
