@@ -112,6 +112,56 @@ export function normalizeManufacturer(name: string): string {
   return MANUFACTURER_EN_NORMALIZE[name] ?? name;
 }
 
+// ─── Grade translation (shared across all platforms) ─────────────────────────
+
+const GRADE_WORD_MAP: [RegExp, string][] = [
+  // Fuel (порядок важен — составные раньше одиночных)
+  [/가솔린\+전기/g, 'Hybrid'], [/디젤\+전기/g, 'Hybrid'],
+  [/가솔린/g, 'Gasoline'], [/디젤/g, 'Diesel'],
+  [/전기/g, 'Electric'], [/하이브리드/g, 'Hybrid'],
+  // Compound Korean words containing 뉴 — must be before 뉴 → New
+  [/매뉴팩처/g, 'Manufaktur'],
+  [/매뉴얼/g, 'Manual'],
+  // Generation / prefix
+  [/올\s*뉴/gi, 'All New'], [/더\s*뉴/gi, 'The New'],
+  // 뉴 only when not inside a Korean word
+  [/(?<![가-힣])뉴(?![가-힣])/g, 'New'],
+  // Trim levels — universal
+  [/터보/g, 'Turbo'], [/모던/g, 'Modern'], [/샤인팩/g, 'Shine Pack'],
+  [/샤인/g, 'Shine'], [/프레스티지/g, 'Prestige'], [/프리미엄/g, 'Premium'],
+  [/익스클루시브/g, 'Exclusive'], [/노블레스/g, 'Noblesse'],
+  [/시그니처/g, 'Signature'], [/인스퍼레이션/g, 'Inspiration'],
+  [/럭셔리/g, 'Luxury'], [/익스프레션/g, 'Expression'],
+  [/스마트/g, 'Smart'], [/트렌디/g, 'Trendy'],
+  [/어드밴스드/g, 'Advanced'], [/컴포트/g, 'Comfort'],
+  [/마스터/g, 'Master'], [/엘리트/g, 'Elite'],
+  // Drive type
+  [/사륜구동/g, 'AWD'], [/전륜구동/g, 'FWD'], [/후륜구동/g, 'RWD'],
+  // Land Rover / Jaguar
+  [/다이나믹/g, 'Dynamic'],
+  [/오토바이오그래피/g, 'Autobiography'],
+  [/퍼스트\s*에디션/g, 'First Edition'],
+  [/블랙\s*에디션/g, 'Black Edition'],
+  // BMW (M 스포츠 до общего 스포츠)
+  [/M\s*스포츠/g, 'M Sport'],
+  [/컴페티션/g, 'Competition'],
+  [/카본\s*에디션/g, 'Carbon Edition'],
+  // Audi
+  [/스포츠백/g, 'Sportback'],
+  [/올로드/g, 'Allroad'],
+  // General
+  [/스포츠/g, 'Sport'],
+];
+
+/** Переводит корейский грейд через словарь (fallback когда нет английского поля) */
+export function translateGradeText(grade: string): string {
+  let result = grade;
+  for (const [pattern, replacement] of GRADE_WORD_MAP) {
+    result = result.replace(pattern, replacement);
+  }
+  return result;
+}
+
 // Корейские префиксы/суффиксы в названиях моделей
 const KOREAN_MODIFIERS: [RegExp, string][] = [
   [/올\s*뉴\s*/gi, 'All New '],     // 올뉴 = All New

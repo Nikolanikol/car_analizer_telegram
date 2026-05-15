@@ -1,5 +1,5 @@
 import { KbchaData } from '../scrapers/kbcha';
-import { translateModelName } from './translations';
+import { translateModelName, translateGradeText } from './translations';
 import { t, type Lang } from '../i18n';
 
 function esc(text: string): string {

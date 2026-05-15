@@ -1,5 +1,5 @@
 import { EncarData } from '../scrapers/encar';
-import { MODEL_MAP, translateModelName, normalizeManufacturer } from './translations';
+import { MODEL_MAP, translateModelName, normalizeManufacturer, translateGradeText } from './translations';
 import { t, type Lang } from '../i18n';
 
 function esc(text: string): string {
@@ -253,49 +253,11 @@ function translateItemStatus(korean: string, lang: Lang): string {
   return ITEM_STATUS_MAP[korean]?.[lang] ?? esc(korean);
 }
 
-const GRADE_WORD_MAP: [RegExp, string][] = [
-  // Fuel (порядок важен — составные раньше одиночных)
-  [/가솔린\+전기/g, 'Hybrid'], [/디젤\+전기/g, 'Hybrid'],
-  [/가솔린/g, 'Gasoline'], [/디젤/g, 'Diesel'],
-  [/전기/g, 'Electric'], [/하이브리드/g, 'Hybrid'],
-  // Mercedes special programs (должны быть ДО замены 뉴 → New)
-  [/매뉴팩처/g, 'Manufaktur'],
-  // Generation / prefix
-  [/올\s*뉴/gi, 'All New'], [/더\s*뉴/gi, 'The New'], [/뉴/gi, 'New'],
-  // Trim levels — universal
-  [/터보/g, 'Turbo'], [/모던/g, 'Modern'], [/샤인팩/g, 'Shine Pack'],
-  [/샤인/g, 'Shine'], [/프레스티지/g, 'Prestige'], [/프리미엄/g, 'Premium'],
-  [/익스클루시브/g, 'Exclusive'], [/노블레스/g, 'Noblesse'],
-  [/시그니처/g, 'Signature'], [/인스퍼레이션/g, 'Inspiration'],
-  [/럭셔리/g, 'Luxury'], [/익스프레션/g, 'Expression'],
-  [/스마트/g, 'Smart'], [/트렌디/g, 'Trendy'],
-  [/어드밴스드/g, 'Advanced'], [/컴포트/g, 'Comfort'],
-  [/마스터/g, 'Master'], [/엘리트/g, 'Elite'],
-  // Land Rover / Jaguar
-  [/다이나믹/g, 'Dynamic'],
-  [/오토바이오그래피/g, 'Autobiography'],
-  [/퍼스트\s*에디션/g, 'First Edition'],
-  [/블랙\s*에디션/g, 'Black Edition'],
-  // BMW (порядок важен: M 스포츠 до общего 스포츠)
-  [/M\s*스포츠/g, 'M Sport'],
-  [/컴페티션/g, 'Competition'],
-  [/카본\s*에디션/g, 'Carbon Edition'],
-  // Audi
-  [/스포츠백/g, 'Sportback'],
-  [/올로드/g, 'Allroad'],
-  // General
-  [/스포츠/g, 'Sport'],
-];
-
 function translateGrade(gradeName: string, gradeEnglishName: string): string {
   // Используем английское поле от Encar если оно заполнено
   if (gradeEnglishName && gradeEnglishName.trim()) return gradeEnglishName.trim();
-  // Иначе — ручной перевод через словарь
-  let result = gradeName;
-  for (const [pattern, replacement] of GRADE_WORD_MAP) {
-    result = result.replace(pattern, replacement);
-  }
-  return result;
+  // Иначе — общий словарь из translations.ts
+  return translateGradeText(gradeName);
 }
 
 // ─── Main formatter ────────────────────────────────────────────────────────────

@@ -1,5 +1,5 @@
 import { KkarData } from '../scrapers/kkar';
-import { translateModelName, MANUFACTURER_MAP } from './translations';
+import { translateModelName, translateGradeText, MANUFACTURER_MAP } from './translations';
 import { t, type Lang } from '../i18n';
 
 function esc(text: string): string {
@@ -119,7 +119,7 @@ export function formatKkarReport(data: KkarData, short = false, lang: Lang = 'ru
 
   lines.push(
     `🚗 <b>${esc(fullName)}</b>`,
-    `<i>${esc(data.gradeName)}</i>`,
+    `<i>${esc(translateGradeText(data.gradeName))}</i>`,
     `<a href="${url}">${url}</a>`,
     '',
     s.reportMainData,
