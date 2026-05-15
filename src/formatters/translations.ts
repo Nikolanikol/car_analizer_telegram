@@ -114,52 +114,90 @@ export function normalizeManufacturer(name: string): string {
 
 // ─── Grade translation (shared across all platforms) ─────────────────────────
 
-const GRADE_WORD_MAP: [RegExp, string][] = [
-  // Fuel (порядок важен — составные раньше одиночных)
-  [/가솔린\+전기/g, 'Hybrid'], [/디젤\+전기/g, 'Hybrid'],
-  [/가솔린/g, 'Gasoline'], [/디젤/g, 'Diesel'],
-  [/전기/g, 'Electric'], [/하이브리드/g, 'Hybrid'],
-  // Compound Korean words containing 뉴 — must be before 뉴 → New
-  [/매뉴팩처/g, 'Manufaktur'],
-  [/매뉴얼/g, 'Manual'],
-  // Generation / prefix
-  [/올\s*뉴/gi, 'All New'], [/더\s*뉴/gi, 'The New'],
-  // 뉴 only when not inside a Korean word
-  [/(?<![가-힣])뉴(?![가-힣])/g, 'New'],
-  // Trim levels — universal
-  [/터보/g, 'Turbo'], [/모던/g, 'Modern'], [/샤인팩/g, 'Shine Pack'],
-  [/샤인/g, 'Shine'], [/프레스티지/g, 'Prestige'], [/프리미엄/g, 'Premium'],
-  [/익스클루시브/g, 'Exclusive'], [/노블레스/g, 'Noblesse'],
-  [/시그니처/g, 'Signature'], [/인스퍼레이션/g, 'Inspiration'],
-  [/럭셔리/g, 'Luxury'], [/익스프레션/g, 'Expression'],
-  [/스마트/g, 'Smart'], [/트렌디/g, 'Trendy'],
-  [/어드밴스드/g, 'Advanced'], [/컴포트/g, 'Comfort'],
-  [/마스터/g, 'Master'], [/엘리트/g, 'Elite'],
-  // Drive type
-  [/사륜구동/g, 'AWD'], [/전륜구동/g, 'FWD'], [/후륜구동/g, 'RWD'],
-  // Land Rover / Jaguar
-  [/다이나믹/g, 'Dynamic'],
-  [/오토바이오그래피/g, 'Autobiography'],
-  [/퍼스트\s*에디션/g, 'First Edition'],
-  [/블랙\s*에디션/g, 'Black Edition'],
-  // BMW (M 스포츠 до общего 스포츠)
-  [/M\s*스포츠/g, 'M Sport'],
-  [/컴페티션/g, 'Competition'],
-  [/카본\s*에디션/g, 'Carbon Edition'],
-  // Audi
-  [/스포츠백/g, 'Sportback'],
-  [/올로드/g, 'Allroad'],
-  // General
-  [/스포츠/g, 'Sport'],
+// Шаг 1: Многословные фразы — применяются на всей строке до токенизации
+// Порядок: длинные раньше коротких (сортируем при применении)
+const GRADE_PHRASES: [string, string][] = [
+  // Compound words containing 뉴 (must be before 뉴 token)
+  ['매뉴팩처', 'Manufaktur'],
+  ['매뉴얼', 'Manual'],
+  // Generation prefixes (пробельные варианты)
+  ['올 뉴', 'All New'], ['올뉴', 'All New'],
+  ['더 뉴', 'The New'], ['더뉴', 'The New'],
+  ['더 넥스트', 'Next'],
+  // Multi-word trim names
+  ['퍼스트 에디션', 'First Edition'], ['퍼스트에디션', 'First Edition'],
+  ['블랙 에디션', 'Black Edition'],   ['블랙에디션', 'Black Edition'],
+  ['카본 에디션', 'Carbon Edition'],  ['카본에디션', 'Carbon Edition'],
+  ['샤인 팩', 'Shine Pack'],          ['샤인팩', 'Shine Pack'],
+  ['M 스포츠', 'M Sport'],            ['M스포츠', 'M Sport'],
+  ['GT 라인', 'GT Line'],             ['GT라인', 'GT Line'], ['GT-라인', 'GT Line'],
+  ['르 블랑', 'Le Blanc'],            ['르블랑', 'Le Blanc'],
+  // Compound drive terms
+  ['사륜구동', 'AWD'], ['전륜구동', 'FWD'], ['후륜구동', 'RWD'],
+  ['가솔린+전기', 'Hybrid'], ['디젤+전기', 'Hybrid'],
 ];
 
-/** Переводит корейский грейд через словарь (fallback когда нет английского поля) */
+// Шаг 2: Словарь одиночных токенов (после split по пробелам)
+const GRADE_TOKEN_MAP: Record<string, string> = {
+  // Fuel
+  '가솔린': 'Gasoline', '디젤': 'Diesel', '전기': 'Electric',
+  '하이브리드': 'Hybrid', '수소': 'Hydrogen', 'LPG': 'LPG', 'CNG': 'CNG',
+  // Transmission / engine
+  '터보': 'Turbo', '오토': 'Auto', '수동': 'Manual',
+  // Generation
+  '뉴': 'New',
+  // Drive
+  '전륜': 'FWD', '후륜': 'RWD', '사륜': 'AWD',
+  // Universal trim levels
+  '모던': 'Modern', '프레스티지': 'Prestige', '프리미엄': 'Premium',
+  '노블레스': 'Noblesse', '시그니처': 'Signature', '익스클루시브': 'Exclusive',
+  '럭셔리': 'Luxury', '스마트': 'Smart', '트렌디': 'Trendy',
+  '어드밴스드': 'Advanced', '컴포트': 'Comfort', '마스터': 'Master',
+  '엘리트': 'Elite', '인스퍼레이션': 'Inspiration', '익스프레션': 'Expression',
+  '샤인': 'Shine', '모던플러스': 'Modern Plus',
+  // Entry / basic levels
+  '엔트리': 'Entry', '베이직': 'Basic', '스탠다드': 'Standard',
+  '스페셜': 'Special', '플래티넘': 'Platinum', '다이아몬드': 'Diamond',
+  // Suffix tokens
+  '팩': 'Pack', '에디션': 'Edition', '라인': 'Line',
+  '플러스': 'Plus', '프로': 'Pro', '맥스': 'Max', '라이트': 'Lite',
+  // Brand-specific trims
+  '캘리그래피': 'Calligraphy',   // Hyundai top trim
+  '그래비티': 'Gravity',         // Kia
+  '이니셔티브': 'Initiative',    // Kia
+  '어반': 'Urban',
+  '다이나믹': 'Dynamic',         // Land Rover / Jaguar
+  '오토바이오그래피': 'Autobiography', // Range Rover
+  '컴페티션': 'Competition',     // BMW
+  '스포츠백': 'Sportback',       // Audi
+  '올로드': 'Allroad',           // Audi
+  '스포츠': 'Sport',
+  // Misc
+  '롱': 'Long', '숏': 'Short', '컴팩트': 'Compact',
+};
+
+function escapeRegex(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/** Переводит корейский грейд (fallback когда нет английского поля от платформы) */
 export function translateGradeText(grade: string): string {
   let result = grade;
-  for (const [pattern, replacement] of GRADE_WORD_MAP) {
-    result = result.replace(pattern, replacement);
+
+  // Шаг 1: Многословные фразы — длинные первыми
+  const sorted = [...GRADE_PHRASES].sort((a, b) => b[0].length - a[0].length);
+  for (const [phrase, translation] of sorted) {
+    result = result.replace(new RegExp(escapeRegex(phrase), 'gi'), translation);
   }
-  return result;
+
+  // Шаг 2: Токенизация — каждый токен через словарь
+  result = result
+    .split(/\s+/)
+    .map(token => GRADE_TOKEN_MAP[token] ?? token)
+    .filter(Boolean)
+    .join(' ');
+
+  return result.trim();
 }
 
 // Корейские префиксы/суффиксы в названиях моделей
