@@ -87,6 +87,32 @@ function migrateDB(raw: any): DB {
   return db;
 }
 
+const MAX_BACKUPS = 5;
+const BACKUP_INTERVAL_MS = 30 * 60 * 1000; // 30 минут
+
+function createBackup(): void {
+  try {
+    if (!fs.existsSync(DB_PATH)) return;
+    const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
+    const backupPath = path.join(DATA_DIR, `db.bak.${timestamp}.json`);
+    fs.copyFileSync(DB_PATH, backupPath);
+
+    // Удаляем старые бэкапы — оставляем только MAX_BACKUPS штук
+    const backups = fs.readdirSync(DATA_DIR)
+      .filter(f => f.startsWith('db.bak.') && f.endsWith('.json'))
+      .sort()
+      .reverse();
+
+    for (const old of backups.slice(MAX_BACKUPS)) {
+      fs.unlinkSync(path.join(DATA_DIR, old));
+    }
+
+    console.log(`[storage] Бэкап создан: ${backupPath}`);
+  } catch (e: any) {
+    console.error(`[storage] Ошибка создания бэкапа: ${e.message}`);
+  }
+}
+
 function loadDB(): DB {
   try {
     if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -109,6 +135,10 @@ function saveDB(db: DB): void {
 
 let db: DB = loadDB();
 console.log(`[storage] База данных загружена: ${Object.keys(db.users).length} пользователей, ${Object.keys(db.keys).length} ключей`);
+
+// Бэкап при старте (до любых изменений) + по расписанию каждые 30 минут
+createBackup();
+setInterval(createBackup, BACKUP_INTERVAL_MS);
 
 function ensureUser(userId: number): UserData {
   if (!db.users[String(userId)]) {
