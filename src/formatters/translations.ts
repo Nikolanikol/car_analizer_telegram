@@ -11,6 +11,7 @@ export const MODEL_MAP: Record<string, string> = {
   '아이오닉5': 'Ioniq 5', '아이오닉6': 'Ioniq 6',
   '스타렉스': 'Starex', '포터': 'Porter', '베뉴': 'Venue',
   '엑센트': 'Accent', '클릭': 'Click', '아토스': 'Atos',
+  '베르나': 'Verna', '트랜스폼': 'Transform',
   '갤로퍼': 'Galloper', '테라칸': 'Terracan', '투스카니': 'Tuscani',
   // Kia (older models)
   '프라이드': 'Pride', '리오': 'Rio', '쎄라토': 'Cerato',
