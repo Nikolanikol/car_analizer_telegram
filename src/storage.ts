@@ -94,7 +94,7 @@ function migrateDB(raw: any): DB {
 }
 
 const MAX_BACKUPS = 5;
-const BACKUP_INTERVAL_MS = 30 * 60 * 1000; // 30 минут
+const BACKUP_INTERVAL_MS = 7 * 24 * 60 * 60 * 1000; // раз в неделю
 
 function createBackup(): void {
   try {

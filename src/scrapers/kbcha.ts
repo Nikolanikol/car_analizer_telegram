@@ -160,8 +160,6 @@ export async function fetchKbchaData(carSeq: string): Promise<KbchaData> {
   }
 
   log(C.green, 'kbcha', `готово: ${modelName}`);
-  log(C.cyan,  'kbcha', `table keys: ${Object.keys(table).join(', ')}`);
-  log(C.cyan,  'kbcha', `history: ${JSON.stringify(history)}`);
 
   return {
     vehicleNo: table['차량번호'] || table['차량정보'] || vehicleNo,

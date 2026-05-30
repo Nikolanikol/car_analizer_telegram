@@ -517,13 +517,16 @@ bot.launch().then(async () => {
   const time = new Date().toLocaleString('ru-RU', { timeZone: 'Asia/Seoul' });
   console.log('Bot started');
   await notify(`✅ <b>Бот запущен</b>\n📦 Commit: <code>${commit}</code>\n🕐 ${time} KST`);
+}).catch((err) => {
+  console.error('[bot.launch] Ошибка запуска:', err.message ?? err);
+  process.exit(1);
 });
 
 process.once('SIGINT',  async () => {
-  await notify('⛔ <b>Бот остановлен</b> (SIGINT)');
+  await Promise.race([notify('⛔ <b>Бот остановлен</b> (SIGINT)'), new Promise(r => setTimeout(r, 2000))]);
   bot.stop('SIGINT');
 });
 process.once('SIGTERM', async () => {
-  await notify('⛔ <b>Бот остановлен</b> (SIGTERM)');
+  await Promise.race([notify('⛔ <b>Бот остановлен</b> (SIGTERM)'), new Promise(r => setTimeout(r, 2000))]);
   bot.stop('SIGTERM');
 });
