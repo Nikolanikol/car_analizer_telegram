@@ -52,6 +52,13 @@ const MAX_KEY_ATTEMPTS = 5;
 const KEY_BAN_DURATION_MS = 30 * 60 * 1000;
 const REQUEST_COOLDOWN_MS = 5 * 1000;
 
+const CATALOG_URL = {
+  menu:          'https://www.kmotors.shop/ru/catalog?utm_source=bot&utm_medium=telegram&utm_campaign=funnel&utm_content=bot_menu',
+  accident:      'https://www.kmotors.shop/ru/catalog?utm_source=bot&utm_medium=telegram&utm_campaign=funnel&utm_content=bot_accident',
+  clean:         'https://www.kmotors.shop/ru/catalog?utm_source=bot&utm_medium=telegram&utm_campaign=funnel&utm_content=bot_clean',
+  balanceEmpty:  'https://www.kmotors.shop/ru/catalog?utm_source=bot&utm_medium=telegram&utm_campaign=funnel&utm_content=bot_balance_empty',
+};
+
 function mainKeyboard(lang: Lang) {
   const s = t(lang);
   return Markup.inlineKeyboard([
@@ -66,6 +73,9 @@ function mainKeyboard(lang: Lang) {
     [
       Markup.button.url(s.btnContact, 'https://t.me/caparts'),
       Markup.button.callback(s.btnLanguage, 'toggle_language'),
+    ],
+    [
+      Markup.button.url(s.btnCatalog, CATALOG_URL.menu),
     ],
   ]);
 }
@@ -99,6 +109,15 @@ bot.start(async (ctx) => {
 bot.command('help', (ctx) => {
   const lang = getUserLanguage(ctx.from.id);
   ctx.replyWithHTML(t(lang).help(FREE_REQUESTS));
+});
+
+bot.command('catalog', (ctx) => {
+  const lang = getUserLanguage(ctx.from.id);
+  const s = t(lang);
+  ctx.replyWithHTML(
+    s.catalogPromoClean,
+    Markup.inlineKeyboard([[Markup.button.url(s.catalogPromoBtnMenu, CATALOG_URL.menu)]])
+  );
 });
 
 bot.command('status', (ctx) => {
@@ -423,7 +442,10 @@ bot.on('text', async (ctx) => {
   if (!canMakeRequest(userId)) {
     return ctx.replyWithHTML(
       s.balanceExhausted,
-      Markup.inlineKeyboard([Markup.button.callback(s.btnEnterKey, 'enter_key')])
+      Markup.inlineKeyboard([
+        [Markup.button.callback(s.btnEnterKey, 'enter_key')],
+        [Markup.button.url(s.catalogPromoBtnMenu, CATALOG_URL.balanceEmpty)],
+      ])
     );
   }
 
@@ -456,24 +478,44 @@ bot.on('text', async (ctx) => {
   ctx.sendChatAction('typing').catch(() => {});
 
   try {
+    let hasIssues = false;
+
     if (parsed.source === 'encar') {
       const data = await fetchEncarData(parsed.id);
       await ctx.telegram.deleteMessage(ctx.chat.id, loading.message_id).catch(() => {});
       await ctx.replyWithHTML(formatEncarReport(data, false, lang));
       await ctx.replyWithHTML(formatEncarReport(data, true, lang));
+      hasIssues = !!(
+        (data.record && (data.record.myAccidentCnt > 0 || data.record.otherAccidentCnt > 0 ||
+          data.record.totalLossCnt > 0 || data.record.floodTotalLossCnt > 0)) ||
+        (data.inspection && data.inspection.outerDamages.length > 0)
+      );
     } else if (parsed.source === 'kbcha') {
       const data = await fetchKbchaData(parsed.id);
       await ctx.telegram.deleteMessage(ctx.chat.id, loading.message_id).catch(() => {});
       if (data.mainPhoto) await ctx.replyWithPhoto(data.mainPhoto);
       await ctx.replyWithHTML(formatKbchaReport(data, parsed.id, false, lang));
       await ctx.replyWithHTML(formatKbchaReport(data, parsed.id, true, lang));
+      hasIssues = (data.accident ?? '').includes('사고있음');
     } else {
       const data = await fetchKkarData(parsed.id);
       await ctx.telegram.deleteMessage(ctx.chat.id, loading.message_id).catch(() => {});
       if (data.mainPhoto) await ctx.replyWithPhoto(data.mainPhoto);
       await ctx.replyWithHTML(formatKkarReport(data, false, lang));
       await ctx.replyWithHTML(formatKkarReport(data, true, lang));
+      hasIssues = data.myAccidentCnt > 0 || data.otherAccidentCnt > 0 ||
+        data.totalLossCnt > 0 || data.floodCnt > 0;
     }
+
+    // Smart CTA to kmotors.shop catalog
+    const s = t(lang);
+    const catalogUrl = hasIssues ? CATALOG_URL.accident : CATALOG_URL.clean;
+    const catalogText = hasIssues ? s.catalogPromoAccident : s.catalogPromoClean;
+    const catalogBtn = hasIssues ? s.catalogPromoBtnAccident : s.catalogPromoBtnClean;
+    await ctx.replyWithHTML(
+      catalogText,
+      Markup.inlineKeyboard([[Markup.button.url(catalogBtn, catalogUrl)]])
+    );
 
     const unlimited = getUnlimitedAccess(userId);
     if (!unlimited.active) {

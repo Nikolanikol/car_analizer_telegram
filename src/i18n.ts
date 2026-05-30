@@ -12,6 +12,7 @@ interface Strings {
   btnStatus: string;
   btnContact: string;
   btnLanguage: string;
+  btnCatalog: string;
 
   statusUnlimited: (expiryLine: string) => string;
   statusBalance: (balance: number) => string;
@@ -104,6 +105,12 @@ interface Strings {
 
   languageChanged: string;
   languageSelect: string;
+
+  catalogPromoAccident: string;
+  catalogPromoClean: string;
+  catalogPromoBtnAccident: string;
+  catalogPromoBtnClean: string;
+  catalogPromoBtnMenu: string;
 }
 
 const RU: Strings = {
@@ -161,6 +168,7 @@ const RU: Strings = {
   btnStatus: '📊 Мой статус',
   btnContact: '💬 Связаться с нами',
   btnLanguage: '🌐 English',
+  btnCatalog: '🚗 Каталог авто из Кореи',
 
   statusUnlimited: (expiryLine) => `✅ Безлимитный доступ активирован.${expiryLine}`,
   statusBalance: (b) => `🔢 Остаток запросов: <b>${b}</b>`,
@@ -252,6 +260,12 @@ const RU: Strings = {
 
   languageChanged: '✅ Язык изменён на русский.',
   languageSelect: '🌐 Выбери язык / Choose language:',
+
+  catalogPromoAccident: '⚠️ <b>Машина с аварийной историей.</b>\nПосмотри чистые варианты в нашем каталоге — только авто с прозрачной историей, цены напрямую с Encar.',
+  catalogPromoClean: '✅ <b>Хорошая история!</b>\nЕсли нужны ещё варианты — смотри каталог корейских авто с прозрачными ценами.',
+  catalogPromoBtnAccident: '🔍 Чистые авто в каталоге →',
+  catalogPromoBtnClean: '🚗 Каталог корейских авто →',
+  catalogPromoBtnMenu: '🚗 Каталог авто из Кореи →',
 };
 
 const EN: Strings = {
@@ -309,6 +323,7 @@ const EN: Strings = {
   btnStatus: '📊 My status',
   btnContact: '💬 Contact us',
   btnLanguage: '🌐 Русский',
+  btnCatalog: '🚗 Korean car catalog',
 
   statusUnlimited: (expiryLine) => `✅ Unlimited access activated.${expiryLine}`,
   statusBalance: (b) => `🔢 Requests remaining: <b>${b}</b>`,
@@ -399,6 +414,12 @@ const EN: Strings = {
 
   languageChanged: '✅ Language changed to English.',
   languageSelect: '🌐 Выбери язык / Choose language:',
+
+  catalogPromoAccident: '⚠️ <b>This car has an accident history.</b>\nCheck out clean alternatives in our catalog — transparent pricing direct from Encar.',
+  catalogPromoClean: '✅ <b>Clean history!</b>\nLooking for more options? Browse our Korean car catalog with transparent prices.',
+  catalogPromoBtnAccident: '🔍 Browse clean cars →',
+  catalogPromoBtnClean: '🚗 Korean car catalog →',
+  catalogPromoBtnMenu: '🚗 Korean car catalog →',
 };
 
 export const i18n: Record<Lang, Strings> = { ru: RU, en: EN };
